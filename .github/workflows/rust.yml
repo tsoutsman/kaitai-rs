@@ -11,14 +11,26 @@ env:
 
 jobs:
   build:
-
+    name: Build
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
-    - name: Build
       run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Run clippy
-      uses: actions-rs/clippy-check@v1.0.7
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        run: cargo test --verbose
+  clippy:
+    name: Run clippy
+    runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v1
+          - uses: actions-rs/toolchain@v1
+            with:
+                toolchain: stable
+                components: clippy
+          - uses: actions-rs/clippy@master
+            with:
+              args: --all-features --all-targets
