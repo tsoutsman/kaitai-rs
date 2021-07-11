@@ -1,11 +1,21 @@
 [package]
 name = "kaitai"
 version = "0.1.0"
+authors = ["Klim Tsoutsman <klimusha@gmail.com>"]
 edition = "2018"
-description = "An easy macro to include a kaitai struct at compile time"
-license = "MIT"
+description = "A macro for compiling Kaitai Struct into Rust."
+readme = true
 repository = "https://www.github.com/TypicalFork/kaitai-rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT OR Apache-2.0"
+keywords = ["binary", "cross-platform", "ks", "ksy", "ksc"]
+# The last 3 categories refer to Kaitai Struct itself. I think it's fair to put them here as this
+# crate exposes the power of Kaitai Struct to Rust and in a sense inherits its functionality.
+categories = ["compilers", "development-tools::ffi", "files", "hardware-support", "multimedia"]
 
 [dependencies]
+yaml-rust = "0.4"
+
+[badges]
+maintenance = { status = "actively-developed" }
+github = { repository = "TypicalFork/kaitai-rs" }
+codecov = { repository = "TypicalFork/kaitai-rs" }
