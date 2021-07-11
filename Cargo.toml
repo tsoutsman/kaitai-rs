@@ -2,6 +2,9 @@
 name = "kaitai"
 version = "0.1.0"
 edition = "2018"
+description = "An easy macro to include a kaitai struct at compile time"
+license = "MIT"
+repository = "https://www.github.com/TypicalFork/kaitai-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
