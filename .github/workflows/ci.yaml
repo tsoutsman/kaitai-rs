@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --features full --verbose
+        run: cargo test --verbose
       - name: Run clippy
         uses: actions-rs/clippy@master
         with:
