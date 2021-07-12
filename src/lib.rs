@@ -24,7 +24,7 @@ pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     };
 
     let file_contents = std::fs::read_to_string(filename).expect("error reading file: ");
-    let structure =
+    let _structure =
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
 
     cloned
