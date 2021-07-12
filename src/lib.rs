@@ -1,3 +1,5 @@
+//! This crate is still very much a work in progress; it does not work.
+//!
 //! A macro for compiling Kaitai Struct into Rust.
 //! # Syntax
 //! ```

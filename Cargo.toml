@@ -24,5 +24,5 @@ proc-macro2 = "1"
 syn = "1"
 
 [badges]
-maintenance = { status = "actively-developed" }
+maintenance = { status = "experimental" }
 github = { repository = "TypicalFork/kaitai-rs", workflow = "CI" }
