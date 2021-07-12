@@ -1,6 +1,6 @@
 [package]
 name = "kaitai"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Klim Tsoutsman <klimusha@gmail.com>"]
 edition = "2018"
 description = "A macro for compiling Kaitai Struct into Rust."
@@ -21,7 +21,7 @@ path = "src/lib.rs"
 yaml-rust = "0.4"
 quote = "1"
 proc-macro2 = "1"
-syn = "1"
+syn = { version = "1", features = ["extra-traits"] }
 
 [badges]
 maintenance = { status = "experimental" }
