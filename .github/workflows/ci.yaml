@@ -14,18 +14,28 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
       - uses: actions/checkout@v2
       - name: Install Rust
-        run: rustup update stable
-      - name: Build
-        run: cargo build --verbose
-      - name: Run tests
-        run: cargo test --verbose
-      - name: Run clippy
-        uses: actions-rs/clippy@master
+        uses: actions-rs/toolchain@v1
         with:
-          args: --all-features --all-targets
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+            command: build
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - name: Format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings

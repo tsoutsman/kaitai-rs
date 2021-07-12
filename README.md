@@ -9,10 +9,14 @@
 This crate is still very much a work in progress; it does not work.
 
 A macro for compiling Kaitai Struct into Rust.
+
 ## Syntax
-```rust
+```dont_run
+# use kaitai::include_kaitai;
 include_kaitai!("filename");
 ```
+## Semantics
+The filepath is taken relative to the project's root directory.
 
 ## License
 
