@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["binary", "cross-platform", "ks", "ksy", "ksc"]
 # The last 3 categories refer to Kaitai Struct itself. I think it's fair to put them here as this
 # crate exposes the power of Kaitai Struct to Rust and in a sense inherits its functionality.
-categories = ["compilers", "development-tools::ffi", "files", "hardware-support", "multimedia"]
+categories = ["compilers", "development-tools::ffi", "filesystem", "hardware-support", "multimedia"]
 
 [lib]
 proc-macro = true
