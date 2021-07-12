@@ -14,6 +14,8 @@ categories = ["compilers", "development-tools::ffi", "files", "hardware-support"
 
 [lib]
 proc-macro = true
+# for cargo-readme
+path = "src/lib.rs"
 
 [dependencies]
 yaml-rust = "0.4"
@@ -23,5 +25,4 @@ syn = "1"
 
 [badges]
 maintenance = { status = "actively-developed" }
-github = { repository = "TypicalFork/kaitai-rs" }
-codecov = { repository = "TypicalFork/kaitai-rs" }
+github = { repository = "TypicalFork/kaitai-rs", workflow = "CI" }

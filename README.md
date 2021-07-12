@@ -2,8 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/kaitai.svg)](https://crates.io/crates/kaitai)
 [![Documentation](https://docs.rs/kaitai/badge.svg)](https://docs.rs/kaitai/)
-[![Workflow Status](https://github.com/TypicalFork/kaitai-rs/workflows/main/badge.svg)](https://github.com/TypicalFork/kaitai-rs/actions?query=workflow%3A%22main%22)
-[![Coverage Status](https://codecov.io/gh/TypicalFork/kaitai-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/TypicalFork/kaitai-rs)
+[![Workflow Status](https://github.com/TypicalFork/kaitai-rs/workflows/CI/badge.svg)](https://github.com/TypicalFork/kaitai-rs/actions?query=workflow%3A%22CI%22)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 [![dependency status](https://deps.rs/crate/kaitai/0.1.0/status.svg)](https://deps.rs/crate/kaitai/0.1.0)
 
