@@ -13,7 +13,7 @@ A macro for compiling Kaitai Struct into Rust.
 ## Syntax
 ```dont_run
 # use kaitai::include_kaitai;
-include_kaitai!("filename");
+include_kaitai!("filepath");
 ```
 ## Semantics
 The filepath is taken relative to the project's root directory.

@@ -5,10 +5,10 @@
 //! # Syntax
 //! ```dont_run
 //! # use kaitai::include_kaitai;
-//! include_kaitai!("filename");
+//! include_kaitai!("filepath");
 //! ```
 //! # Semantics
-//! The file is located relative to the project's root directory.
+//! The filepath is taken relative to the project's root directory.
 
 #[proc_macro]
 pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -28,8 +28,4 @@ pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
 
     cloned
-}
-
-#[allow(dead_code)]
-struct S { temp: u8,
 }
