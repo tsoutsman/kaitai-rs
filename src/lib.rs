@@ -3,19 +3,21 @@
 //! A macro for compiling Kaitai Struct into Rust.
 //!
 //! # Syntax
-//! ```no_run
+//! ```ignore
 //! # use kaitai::include_kaitai;
 //! include_kaitai!("filepath");
 //! ```
 //! # Semantics
 //! The filepath is taken relative to the project's root directory.
-#![deny(warnings)]
-#![deny(future_incompatible)]
-#![deny(nonstandard_style)]
-#![deny(rust_2018_idioms)]
-#![deny(rust_2021_compatibility)]
-#![warn(missing_docs)]
-#![warn(unused)]
+#![warn(
+    missing_docs,
+    rust_2018_idioms,
+    rust_2021_compatibility,
+    future_incompatible,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    rustdoc::broken_intra_doc_links
+)]
 
 /// See crate-level documentation on how to use macro.
 #[proc_macro]
