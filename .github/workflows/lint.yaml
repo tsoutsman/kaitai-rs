@@ -17,9 +17,9 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
-          components: rustfmt, clippy
+          components: clippy
       # This command annotates the commit with clippy warnings whereas the next one actually fails the CI if any warnings
       # are present.
       - name: Annotate clippy
@@ -38,9 +38,9 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
-          components: rustfmt, clippy
+          components: rustfmt
       - name: Format
         uses: actions-rs/cargo@v1
         with:
