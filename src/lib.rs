@@ -19,6 +19,8 @@
     rustdoc::broken_intra_doc_links
 )]
 
+mod runtime;
+
 /// See crate-level documentation on how to use macro.
 #[proc_macro]
 pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
