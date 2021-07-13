@@ -1,6 +1,6 @@
 use kaitai::include_kaitai;
 
-fn main() {
-    #[allow(clippy::no_effect)]
-    include_kaitai!("tests/test.ksy");
+#[test]
+fn basic_syntax() {
+    include_kaitai!("tests/ksy/gltf_binary.ksy");
 }
