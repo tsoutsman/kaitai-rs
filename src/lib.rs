@@ -3,13 +3,21 @@
 //! A macro for compiling Kaitai Struct into Rust.
 //!
 //! # Syntax
-//! ```dont_run
+//! ```no_run
 //! # use kaitai::include_kaitai;
 //! include_kaitai!("filepath");
 //! ```
 //! # Semantics
 //! The filepath is taken relative to the project's root directory.
+#![deny(warnings)]
+#![deny(future_incompatible)]
+#![deny(nonstandard_style)]
+#![deny(rust_2018_idioms)]
+#![deny(rust_2021_compatibility)]
+#![warn(missing_docs)]
+#![warn(unused)]
 
+/// See crate-level documentation on how to use macro.
 #[proc_macro]
 pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let cloned = item.clone();
