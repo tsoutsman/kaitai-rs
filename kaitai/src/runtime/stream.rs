@@ -37,6 +37,12 @@ macro_rules! generate_read_functions {
     };
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub enum TerminatorFlags {
+    Include,
+    Consume,
+}
+
 pub trait KaitaiStream: Read + Seek {
     // The trait doesn't require a close method as buffers are automatically closed on drop.
     // The trait doesn't require a seek method as it is already implemented by std::io::Seek.
@@ -58,13 +64,12 @@ pub trait KaitaiStream: Read + Seek {
     }
 
     fn size(&mut self) -> Result<u64> {
-        // TODO: unstable feature:
-        // #![feature(seek_stream_len)]
-        // self.stream_len()
-        let pos = self.pos()?;
-        let size = self.seek(SeekFrom::End(0))?;
-        self.seek(SeekFrom::Start(pos))?;
-        Ok(size)
+        // let pos = self.pos()?;
+        // let size = self.seek(SeekFrom::End(0))?;
+        // self.seek(SeekFrom::Start(pos))?;
+        // Ok(size)
+        // NIGHTLY FEATURE
+        self.stream_len().map_err(|e| e.into())
     }
 
     fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>> {
@@ -93,12 +98,7 @@ pub trait KaitaiStream: Read + Seek {
     /// If include_term is true then the terminator will be included in the returned bytes. If
     /// consume_term is true then the current position in the buffer will be set to the next byte
     /// after the terminator, otherwise it will be set to the terminator.
-    fn read_bytes_term(
-        &mut self,
-        term: char,
-        include_term: bool,
-        consume_term: bool,
-    ) -> Result<Vec<u8>> {
+    fn read_bytes_term(&mut self, term: char, flags: &[TerminatorFlags]) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();
         let mut temp_buffer = [0u8; 1];
 
@@ -109,16 +109,16 @@ pub trait KaitaiStream: Read + Seek {
             if bytes_read == 0 {
                 return Err(KaitaiError::EofBeforeTerminator(term));
             }
-            // TODO: unstable feature:
-            // #![feature(extend_one)]
-            // buffer.extend_one(temp_buffer[0]);
-            buffer.extend_from_slice(&temp_buffer);
+            // buffer.extend_from_slice(&temp_buffer);
+            // NIGHTLY FEATURE
+            buffer.extend_one(temp_buffer[0]);
         }
-        if include_term {
-            // TODO: same as above
-            buffer.extend_from_slice(&temp_buffer);
+        if flags.contains(&TerminatorFlags::Include) {
+            // buffer.extend_from_slice(&temp_buffer);
+            // NIGHTLY FEATURE
+            buffer.extend_one(temp_buffer[0]);
         }
-        if !consume_term {
+        if !flags.contains(&TerminatorFlags::Consume) {
             self.seek(SeekFrom::Current(-1))?;
         }
         Ok(buffer)

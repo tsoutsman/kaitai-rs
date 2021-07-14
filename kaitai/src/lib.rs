@@ -8,8 +8,10 @@
 //! include_kaitai!("filepath");
 //! ```
 //! # Semantics
-//! The filepath is taken relative to the project's root directory.
+//! The file is located relative to the current file (similarly to how modules are found).
 // missing_docs,
+#![feature(extend_one)]
+#![feature(seek_stream_len)]
 #![warn(
     rust_2018_idioms,
     rust_2021_compatibility,
@@ -18,6 +20,7 @@
     missing_copy_implementations,
     rustdoc::broken_intra_doc_links
 )]
+#![allow(dead_code)]
 
 mod errors;
 mod runtime;
@@ -26,9 +29,7 @@ mod runtime;
 // Public exports
 //
 
+#[doc(inline)]
 pub use kaitai_macros::include_kaitai;
 
-#[doc(hidden)]
-pub use errors::{KaitaiError, Result};
-#[doc(hidden)]
-pub use runtime::stream::KaitaiStream;
+pub(crate) use errors::{KaitaiError, Result};

@@ -1,3 +1,7 @@
+#![feature(proc_macro_span)]
+use std::path::Path;
+
+// Since it gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
 /// See crate-level documentation on how to use macro.
 #[proc_macro]
 pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -12,7 +16,12 @@ pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
         _ => panic!("invalid input"),
     };
 
-    let file_contents = std::fs::read_to_string(filename).expect("error reading file: ");
+    // Span::call_site() is a nightly feature.
+    let mut source_file_path = proc_macro::Span::call_site().source_file().path();
+    source_file_path.pop();
+    let file_path = source_file_path.join(Path::new(&filename));
+
+    let file_contents = std::fs::read_to_string(file_path).expect("error reading file: ");
     let _structure =
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
 
