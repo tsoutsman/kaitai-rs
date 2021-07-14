@@ -1,7 +1,7 @@
 // The contents of this file are **heavily** inspired by https://github.com/kaitai-io/kaitai_struct_rust_runtime.
 // Although this file is not a copy-paste, without their work this would have been much harder.
 
-use std::io::{self, Read, Seek};
+use std::io::{self, Read, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
 
@@ -37,6 +37,37 @@ macro_rules! generate_read_functions {
 }
 
 pub(crate) trait KaitaiStream: Read + Seek {
+    // The trait doesn't require a close method as buffers are automatically closed on drop.
+    // The trait doesn't require a seek method as it is already implemented by std::io::Seek.
+
+    fn is_eof(&mut self) -> io::Result<bool> {
+        // TODO: benchmark against:
+        // let pos = self.pos()?;
+        // let size = self.seek(SeekFrom::End(0))?;
+        // self.seek(SeekFrom::Start(pos))?;
+        // Ok(pos >= size)
+        let mut buf = [0u8; 1];
+        let result = self.read(&mut buf).map(|n| n == 0);
+        self.seek(SeekFrom::Current(-1))?;
+        result
+    }
+
+    fn pos(&mut self) -> io::Result<u64> {
+        self.stream_position()
+    }
+
+    fn size(&mut self) -> io::Result<u64> {
+        // Unstable feature:
+        // #![feature(seek_stream_len)]
+        // which allows: self.stream_len()
+        let pos = self.pos()?;
+        let size = self.seek(SeekFrom::End(0))?;
+        self.seek(SeekFrom::Start(pos))?;
+        Ok(size)
+    }
+
+    // Read functions
+
     // generate_read_functions can't generate u1 => u8 and s1 => i8 as they don't have an Endian
     // generic. Guess this works as additional documentation for how the macro works :)
     /// Read in a u8 (KS: u1)
