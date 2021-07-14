@@ -20,13 +20,13 @@ macro_rules! generate_read_functions {
         ::paste::paste! {
         $(
         // This doc comment becomes stable in Rust 1.54: 2021-07-29
-        // #[doc = concat!(" Read in a little endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
+        // #[doc = concat!(" Reads in a little endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
         fn [<read_ $letter $size le>](&mut self) -> ::std::io::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::LittleEndian>()
         }
         // This doc comment becomes stable in Rust 1.54: 2021-07-29
-        // #[doc = concat!(" Read in a big endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
+        // #[doc = concat!(" Reads in a big endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
         fn [<read_ $letter $size be>](&mut self) -> ::std::io::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::BigEndian>()
@@ -57,16 +57,67 @@ pub(crate) trait KaitaiStream: Read + Seek {
     }
 
     fn size(&mut self) -> io::Result<u64> {
-        // Unstable feature:
+        // TODO: unstable feature:
         // #![feature(seek_stream_len)]
-        // which allows: self.stream_len()
+        // self.stream_len()
         let pos = self.pos()?;
         let size = self.seek(SeekFrom::End(0))?;
         self.seek(SeekFrom::Start(pos))?;
         Ok(size)
     }
 
-    // Read functions
+    fn read_bytes(&mut self, count: usize) -> io::Result<Vec<u8>> {
+        let mut buffer = Vec::with_capacity(count);
+        self.read_exact(&mut buffer[..]).map(|_| buffer)
+    }
+
+    fn read_bytes_full(&mut self) -> io::Result<Vec<u8>> {
+        // TODO: benchmark against:
+        // let mut buffer = vec![0; 0];
+        let mut buffer = Vec::with_capacity(self.size()? as usize);
+        self.read_to_end(&mut buffer).map(|_| buffer)
+    }
+
+    /// Reads bytes up to a terminator.
+    ///
+    /// If include_term is true then the terminator will be included in the returned bytes. If
+    /// consume_term is true then the current position in the buffer will be set to the next byte
+    /// after the terminator, otherwise it will be set to the terminator.
+    fn read_bytes_term(
+        &mut self,
+        term: char,
+        include_term: bool,
+        consume_term: bool,
+    ) -> io::Result<Vec<u8>> {
+        let mut buffer = Vec::new();
+        let temp_buffer = [0u8; 1];
+
+        while !(temp_buffer[0] as char == term) {
+            let mut temp_buffer = [0u8; 1];
+            let bytes_read = self.read(&mut temp_buffer)?;
+
+            if bytes_read == 0 {
+                if eos_error {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        format!("end of stream reached, but no terminator {} found", term),
+                    ));
+                }
+            }
+            // TODO: unstable feature:
+            // #![feature(extend_one)]
+            // buffer.extend_one(temp_buffer[0]);
+            buffer.extend_from_slice(&temp_buffer);
+        }
+        if include_term {
+            // TODO: same as above
+            buffer.extend_from_slice(&temp_buffer);
+        }
+        if !consume_term {
+            self.seek(SeekFrom::Current(-1))?;
+        }
+        Ok(buffer)
+    }
 
     // generate_read_functions can't generate u1 => u8 and s1 => i8 as they don't have an Endian
     // generic. Guess this works as additional documentation for how the macro works :)
