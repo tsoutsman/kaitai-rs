@@ -1,10 +1,11 @@
-// The contents of this file are largely based off of https://github.com/kaitai-io/kaitai_struct_rust_runtime.
+// The contents of this file are **heavily** inspired by https://github.com/kaitai-io/kaitai_struct_rust_runtime.
 // Although this file is not a copy-paste, without their work this would have been much harder.
+
 use std::io::{self, Read, Seek};
 
 use byteorder::ReadBytesExt;
 
-/// A simple macro that generates functions to read Kaitai Struct specified integers and convert
+/// A macro that generates functions to read Kaitai Struct specified integers and convert
 /// them into Rust types.
 /// # Use
 /// ```
@@ -15,16 +16,17 @@ use byteorder::ReadBytesExt;
 /// # }
 /// ```
 macro_rules! generate_read_functions {
-    // (($endian_short:ident, $endian_long:ident); [$($kaitai_type_letter:ident$kaitai_type_num:ident),+$(,)?] => [$($rust_type:ty),+$(,)?]) => {
     ($letter:ident; [$($size:literal),+$(,)?] => [$($rust_type:ty),+$(,)?]) => {
         ::paste::paste! {
         $(
-        #[doc = concat!(" Read in a little endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
+        // This doc comment becomes stable in Rust 1.54: 2021-07-29
+        // #[doc = concat!(" Read in a little endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
         fn [<read_ $letter $size le>](&mut self) -> ::std::io::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::LittleEndian>()
         }
-        #[doc = concat!(" Read in a big endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
+        // This doc comment becomes stable in Rust 1.54: 2021-07-29
+        // #[doc = concat!(" Read in a big endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
         fn [<read_ $letter $size be>](&mut self) -> ::std::io::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::BigEndian>()
@@ -35,8 +37,8 @@ macro_rules! generate_read_functions {
 }
 
 pub(crate) trait KaitaiStream: Read + Seek {
-    // generate_read_function cant generate u1 => u8 and s1 => i8 as they don't have an Endian generic. Guess this
-    // works as additional documentation for how the macro works :)
+    // generate_read_functions can't generate u1 => u8 and s1 => i8 as they don't have an Endian
+    // generic. Guess this works as additional documentation for how the macro works :)
     /// Read in a u8 (KS: u1)
     fn read_u1(&mut self) -> io::Result<u8> {
         self.read_u8()
