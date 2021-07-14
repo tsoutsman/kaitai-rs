@@ -1,4 +1,5 @@
 ignore:
-  - "src/bin" # don't consider binaries in coverage report
-  - "tests" # we also don't care about coverage of test code
-  - "benches" # or coverage of benchmarks
+  - "kaitai/tests" # we also don't care about coverage of test code
+  - "kaitai-macros/tests" # we also don't care about coverage of test code
+  - "kaitai/benches" # or coverage of benchmarks
+  - "kaitai-macros/benches" # or coverage of benchmarks

@@ -73,19 +73,18 @@ pub trait KaitaiStream: Read + Seek {
     }
 
     fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>> {
-        let mut buffer = Vec::with_capacity(count);
-        self.read_exact(&mut buffer[..])
-            .map(|_| buffer)
-            .map_err(|e| e.into())
+        let mut buffer = vec![0; count];
+
+        match self.read_exact(&mut buffer) {
+            Ok(_) => Ok(buffer),
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn read_bytes_full(&mut self) -> Result<Vec<u8>> {
         // TODO: benchmark against:
         // let mut buffer = vec![0; 0];
         let mut buffer = Vec::with_capacity(self.size()? as usize);
-        // self.read_to_end(&mut buffer)
-        //     .map(|_| buffer)
-        //     .map_err(|e| e.into())
 
         match self.read_to_end(&mut buffer) {
             Ok(_) => Ok(buffer),
@@ -100,28 +99,30 @@ pub trait KaitaiStream: Read + Seek {
     /// after the terminator, otherwise it will be set to the terminator.
     fn read_bytes_term(&mut self, term: char, flags: &[TerminatorFlags]) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();
-        let mut temp_buffer = [0u8; 1];
 
-        while temp_buffer[0] as char != term {
-            temp_buffer = [0u8; 1];
+        loop {
+            let mut temp_buffer = [0u8; 1];
             let bytes_read = self.read(&mut temp_buffer)?;
 
             if bytes_read == 0 {
                 return Err(KaitaiError::EofBeforeTerminator(term));
             }
+
+            if temp_buffer[0] as char == term {
+                if flags.contains(&TerminatorFlags::Include) {
+                    // buffer.extend_from_slice(&temp_buffer);
+                    // NIGHTLY FEATURE
+                    buffer.extend_one(temp_buffer[0]);
+                } else if !flags.contains(&TerminatorFlags::Consume) {
+                    self.seek(SeekFrom::Current(-1))?;
+                }
+                return Ok(buffer);
+            }
+
             // buffer.extend_from_slice(&temp_buffer);
             // NIGHTLY FEATURE
             buffer.extend_one(temp_buffer[0]);
         }
-        if flags.contains(&TerminatorFlags::Include) {
-            // buffer.extend_from_slice(&temp_buffer);
-            // NIGHTLY FEATURE
-            buffer.extend_one(temp_buffer[0]);
-        }
-        if !flags.contains(&TerminatorFlags::Consume) {
-            self.seek(SeekFrom::Current(-1))?;
-        }
-        Ok(buffer)
     }
 
     // generate_read_functions can't generate u1 => u8 and s1 => i8 as they don't have an endian
@@ -143,3 +144,132 @@ pub trait KaitaiStream: Read + Seek {
 }
 
 impl<T: Read + Seek> KaitaiStream for T {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn new_buf() -> Cursor<Vec<u8>> {
+        Cursor::new(vec![0, 1, 2, 3, 4])
+    }
+
+    #[test]
+    fn is_eof() {
+        let mut buf = new_buf();
+
+        buf.seek(SeekFrom::End(0)).unwrap();
+        assert!(buf.is_eof().unwrap());
+
+        buf.seek(SeekFrom::Current(-3)).unwrap();
+        assert!(!buf.is_eof().unwrap());
+    }
+
+    #[test]
+    fn pos() {
+        let mut buf = new_buf();
+
+        assert_eq!(buf.pos().unwrap(), 0);
+
+        buf.seek(SeekFrom::Current(2)).unwrap();
+        assert_eq!(buf.pos().unwrap(), 2);
+
+        buf.seek(SeekFrom::End(0)).unwrap();
+        assert_eq!(buf.pos().unwrap(), 5);
+    }
+
+    #[test]
+    fn size() {
+        let mut buf = new_buf();
+
+        assert_eq!(buf.size().unwrap(), 5)
+    }
+
+    #[test]
+    fn read_bytes() {
+        let mut buf = new_buf();
+
+        assert_eq!(vec![0, 1], buf.read_bytes(2).unwrap());
+        assert_eq!(vec![2, 3, 4], buf.read_bytes(3).unwrap());
+    }
+
+    #[test]
+    fn read_bytes_full() {
+        let mut buf = new_buf();
+
+        assert_eq!(vec![0, 1, 2, 3, 4], buf.read_bytes_full().unwrap());
+    }
+
+    #[test]
+    fn read_bytes_term() {
+        let mut buf: Cursor<Vec<u8>> = Cursor::new(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        assert_eq!(
+            vec![0, 1, 2],
+            buf.read_bytes_term('\u{3}', &[TerminatorFlags::Consume])
+                .unwrap()
+        );
+        assert_eq!(vec![4, 5], buf.read_bytes_term('\u{6}', &[]).unwrap());
+        assert_eq!(
+            vec![6, 7],
+            buf.read_bytes_term(
+                '\u{7}',
+                &[TerminatorFlags::Include, TerminatorFlags::Consume]
+            )
+            .unwrap()
+        );
+        assert!(buf.read_bytes_term('\u{15}', &[]).is_err());
+    }
+
+    macro_rules! test_read_integer {
+        ($name:ident, $value:expr) => {
+            #[test]
+            fn $name() {
+                let mut buf = Cursor::new(vec![1, 2, 3, 4, 5, 6, 7, 8]);
+                assert_eq!(buf.$name().unwrap(), $value);
+            }
+        };
+    }
+
+    test_read_integer!(read_u1, 1);
+    test_read_integer!(read_s1, 1);
+
+    test_read_integer!(read_s2le, 513);
+    test_read_integer!(read_s2be, 258);
+    test_read_integer!(read_u2le, 513);
+    test_read_integer!(read_u2be, 258);
+
+    test_read_integer!(read_s4le, 67305985);
+    test_read_integer!(read_s4be, 16909060);
+    test_read_integer!(read_u4le, 67305985);
+    test_read_integer!(read_u4be, 16909060);
+
+    test_read_integer!(read_s8le, 578437695752307201);
+    test_read_integer!(read_s8be, 72623859790382856);
+    test_read_integer!(read_u8le, 578437695752307201);
+    test_read_integer!(read_u8be, 72623859790382856);
+
+    #[test]
+    fn read_f4le() {
+        let mut buf = Cursor::new(vec![0, 0, 128, 62]);
+        assert_eq!(buf.read_f4le().unwrap(), 0.25);
+    }
+
+    #[test]
+    fn read_f4be() {
+        let mut buf = Cursor::new(vec![62, 128, 0, 0]);
+        assert_eq!(buf.read_f4be().unwrap(), 0.25);
+    }
+
+    #[test]
+    fn read_f8le() {
+        let mut buf = Cursor::new(vec![0, 0, 0, 0, 0, 0, 208, 63]);
+        assert_eq!(buf.read_f8le().unwrap(), 0.25);
+    }
+
+    #[test]
+    fn read_f8be() {
+        let mut buf = Cursor::new(vec![63, 208, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(buf.read_f8be().unwrap(), 0.25);
+    }
+}
