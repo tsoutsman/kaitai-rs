@@ -9,10 +9,10 @@
 //! ```
 //! # Semantics
 //! The file is located relative to the current file (similarly to how modules are found).
-// missing_docs,
 #![feature(extend_one)]
 #![feature(seek_stream_len)]
 #![warn(
+    missing_docs,
     rust_2018_idioms,
     rust_2021_compatibility,
     future_incompatible,
