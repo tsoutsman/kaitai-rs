@@ -253,7 +253,7 @@ mod tests {
 
         assert!(buf.ensure_fixed_contents(vec![0, 1, 2]).is_ok());
         assert!(buf.ensure_fixed_contents(vec![3, 4]).is_ok());
-        buf.seek(SeekFrom::Current(1));
+        buf.seek(SeekFrom::Current(1)).unwrap();
         assert!(buf.ensure_fixed_contents(vec![6, 7, 8]).is_ok());
         assert!(buf.ensure_fixed_contents(vec![8, 9, 10]).is_err());
     }
