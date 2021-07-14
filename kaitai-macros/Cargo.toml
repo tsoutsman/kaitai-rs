@@ -1,0 +1,23 @@
+[package]
+name = "kaitai-macros"
+version = "0.1.1"
+authors = ["Klim Tsoutsman <klimusha@gmail.com>"]
+edition = "2018"
+description = "Macros for kaitai"
+readme = true
+repository = "https://www.github.com/TypicalFork/kaitai-rs"
+license = "MIT OR Apache-2.0"
+
+[lib]
+proc-macro = true
+# for cargo-readme
+path = "src/lib.rs"
+
+[dependencies]
+yaml-rust = "0.4"
+quote = "1"
+proc-macro2 = "1"
+syn = { version = "1", features = ["extra-traits"] }
+
+[badges]
+maintenance = { status = "experimental" }
