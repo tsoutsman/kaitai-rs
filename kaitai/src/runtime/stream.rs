@@ -81,6 +81,7 @@ pub trait KaitaiStream: Read + Seek {
         }
     }
 
+    /// Read the remaining bytes in the stream.
     fn read_bytes_full(&mut self) -> Result<Vec<u8>> {
         // TODO: benchmark against:
         // let mut buffer = vec![0; 0];
@@ -92,11 +93,11 @@ pub trait KaitaiStream: Read + Seek {
         }
     }
 
-    /// Reads bytes up to a terminator.
+    /// Read bytes up to a terminator.
     ///
-    /// If include_term is true then the terminator will be included in the returned bytes. If
-    /// consume_term is true then the current position in the buffer will be set to the next byte
-    /// after the terminator, otherwise it will be set to the terminator.
+    /// The Include flag determines whether the terminator is included in the return value. If the
+    /// Consumed flag is set, the stream points to the character after the terminator, otherwise
+    /// it points to the terminator.
     fn read_bytes_term(&mut self, term: char, flags: &[TerminatorFlags]) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();
 
@@ -122,6 +123,23 @@ pub trait KaitaiStream: Read + Seek {
             // buffer.extend_from_slice(&temp_buffer);
             // NIGHTLY FEATURE
             buffer.extend_one(temp_buffer[0]);
+        }
+    }
+
+    fn ensure_fixed_contents(&mut self, expected: Vec<u8>) -> Result<()> {
+        let mut buf = vec![0; expected.len()];
+        match self.read_exact(&mut buf) {
+            Ok(_) => {
+                if buf == expected {
+                    Ok(())
+                } else {
+                    Err(KaitaiError::UnexpectedFileContents {
+                        actual: buf,
+                        expected,
+                    })
+                }
+            }
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -151,7 +169,7 @@ mod tests {
     use std::io::Cursor;
 
     fn new_buf() -> Cursor<Vec<u8>> {
-        Cursor::new(vec![0, 1, 2, 3, 4])
+        Cursor::new(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     }
 
     #[test]
@@ -171,18 +189,18 @@ mod tests {
 
         assert_eq!(buf.pos().unwrap(), 0);
 
-        buf.seek(SeekFrom::Current(2)).unwrap();
-        assert_eq!(buf.pos().unwrap(), 2);
+        buf.seek(SeekFrom::Current(4)).unwrap();
+        assert_eq!(buf.pos().unwrap(), 4);
 
         buf.seek(SeekFrom::End(0)).unwrap();
-        assert_eq!(buf.pos().unwrap(), 5);
+        assert_eq!(buf.pos().unwrap(), 10);
     }
 
     #[test]
     fn size() {
         let mut buf = new_buf();
 
-        assert_eq!(buf.size().unwrap(), 5)
+        assert_eq!(buf.size().unwrap(), 10)
     }
 
     #[test]
@@ -197,7 +215,10 @@ mod tests {
     fn read_bytes_full() {
         let mut buf = new_buf();
 
-        assert_eq!(vec![0, 1, 2, 3, 4], buf.read_bytes_full().unwrap());
+        assert_eq!(
+            vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            buf.read_bytes_full().unwrap()
+        );
     }
 
     #[test]
@@ -224,6 +245,17 @@ mod tests {
                 .unwrap()
         );
         assert!(buf.read_bytes_term('\u{15}', &[]).is_err());
+    }
+
+    #[test]
+    fn ensure_fixed_contents() {
+        let mut buf = new_buf();
+
+        assert!(buf.ensure_fixed_contents(vec![0, 1, 2]).is_ok());
+        assert!(buf.ensure_fixed_contents(vec![3, 4]).is_ok());
+        buf.seek(SeekFrom::Current(1));
+        assert!(buf.ensure_fixed_contents(vec![6, 7, 8]).is_ok());
+        assert!(buf.ensure_fixed_contents(vec![8, 9, 10]).is_err());
     }
 
     macro_rules! test_read_integer {

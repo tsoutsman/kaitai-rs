@@ -1,4 +1,4 @@
-Please see the main [Kaitai](https://www.crates.io/crates/kaitai) crate.
+Please see the main [kaitai](https://www.crates.io/crates/kaitai) crate.
 
 ## License
 
