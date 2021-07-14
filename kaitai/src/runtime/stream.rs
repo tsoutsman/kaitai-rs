@@ -218,6 +218,11 @@ mod tests {
             )
             .unwrap()
         );
+        assert_eq!(
+            vec![8],
+            buf.read_bytes_term('\u{8}', &[TerminatorFlags::Include])
+                .unwrap()
+        );
         assert!(buf.read_bytes_term('\u{15}', &[]).is_err());
     }
 
