@@ -1,3 +1,5 @@
+// The contents of this file are **heavily** inspired by https://github.com/kaitai-io/kaitai_struct_rust_runtime.
+// Although this file is not a copy-paste, without their work this would have been much harder.
 use crate::{runtime::stream::KaitaiStream, Result};
 
 pub trait KaitaiFormat {
