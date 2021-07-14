@@ -1,8 +1,11 @@
 #![feature(proc_macro_span)]
+#![feature(register_tool)]
+#![register_tool(tarpaulin)]
 use std::path::Path;
 
 // Since it gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
 /// See crate-level documentation on how to use macro.
+#[tarpaulin::skip]
 #[proc_macro]
 pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let cloned = item.clone();
