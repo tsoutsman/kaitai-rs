@@ -1,1 +1,0 @@
-/mnt/c/Users/Klim/CLionProjects/kaitai-rs/kaitai/README.md
