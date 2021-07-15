@@ -25,11 +25,11 @@
 mod errors;
 mod runtime;
 
+pub(crate) use errors::{KaitaiError, Result};
+
 //
 // Public exports
 //
 
 #[doc(inline)]
 pub use kaitai_macros::include_kaitai;
-
-pub(crate) use errors::{KaitaiError, Result};
