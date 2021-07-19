@@ -1,7 +1,17 @@
 #![feature(proc_macro_span)]
 #![feature(register_tool)]
 #![register_tool(tarpaulin)]
+
+mod meta;
+mod seq;
+mod utils;
+
+use meta::parse_meta;
+use seq::parse_seq;
+
 use std::path::Path;
+
+use yaml_rust::Yaml;
 
 // Since it gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
 /// See crate-level documentation on how to use macro.
@@ -25,8 +35,32 @@ pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let file_path = source_file_path.join(Path::new(&filename));
 
     let file_contents = std::fs::read_to_string(file_path).expect("error reading file: ");
-    let _structure =
+    let structure =
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
+
+    let map = match structure {
+        Yaml::Hash(hm) => hm,
+        _ => panic!("#125"),
+    };
+
+    let meta = match map.get(&Yaml::String("meta".to_owned())) {
+        Some(s) => match s {
+            Yaml::Hash(a) => a,
+            _ => panic!("meta not hash"),
+        },
+        None => panic!("no meta"),
+    };
+
+    let seq = match map.get(&Yaml::String("seq".to_owned())) {
+        Some(s) => match s {
+            Yaml::Array(a) => a,
+            _ => panic!("seq not array"),
+        },
+        None => panic!("no sequence"),
+    };
+
+    let _parsed_meta = parse_meta(meta);
+    let _parsed_seq = parse_seq(seq);
 
     cloned
 }

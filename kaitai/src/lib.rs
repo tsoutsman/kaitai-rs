@@ -33,3 +33,8 @@ pub(crate) use errors::{KaitaiError, Result};
 
 #[doc(inline)]
 pub use kaitai_macros::include_kaitai;
+
+#[doc(hidden)]
+mod __private {
+    pub use super::runtime::{format::KaitaiFormat, stream::KaitaiStream};
+}

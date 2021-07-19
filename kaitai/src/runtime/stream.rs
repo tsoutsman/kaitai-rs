@@ -20,13 +20,11 @@ macro_rules! generate_read_functions {
     ($letter:ident; [$($size:literal),+$(,)?] => [$($rust_type:ty),+$(,)?]) => {
         ::paste::paste! {
         $(
-        // NIGHTLY FEATURE
          #[doc = concat!(" Reads in a little endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
         fn [<read_ $letter $size le>](&mut self) -> $crate::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::LittleEndian>().map_err(|e| e.into())
         }
-        // NIGHTLY FEATURE
         #[doc = concat!(" Reads in a big endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
         fn [<read_ $letter $size be>](&mut self) -> $crate::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
@@ -68,7 +66,7 @@ pub trait KaitaiStream: Read + Seek {
         // let size = self.seek(SeekFrom::End(0))?;
         // self.seek(SeekFrom::Start(pos))?;
         // Ok(size)
-        // NIGHTLY FEATURE
+        // NOTE: NIGHTLY FEATURE
         self.stream_len().map_err(|e| e.into())
     }
 
@@ -112,7 +110,7 @@ pub trait KaitaiStream: Read + Seek {
             if temp_buffer[0] as char == term {
                 if flags.contains(&TerminatorFlags::Include) {
                     // buffer.extend_from_slice(&temp_buffer);
-                    // NIGHTLY FEATURE
+                    // NOTE: NIGHTLY FEATURE
                     buffer.extend_one(temp_buffer[0]);
                 } else if !flags.contains(&TerminatorFlags::Consume) {
                     self.seek(SeekFrom::Current(-1))?;
@@ -121,7 +119,7 @@ pub trait KaitaiStream: Read + Seek {
             }
 
             // buffer.extend_from_slice(&temp_buffer);
-            // NIGHTLY FEATURE
+            // NOTE: NIGHTLY FEATURE
             buffer.extend_one(temp_buffer[0]);
         }
     }
