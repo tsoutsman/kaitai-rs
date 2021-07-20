@@ -1,11 +1,12 @@
-use yaml_rust::{yaml, Yaml};
-
-pub(crate) fn get_item_attribute(item: &yaml::Hash, attribute: &str) -> Option<String> {
-    item.get(&Yaml::String(attribute.to_owned())).map(|i| {
-        if let Yaml::String(ref string) = i {
-            string.clone()
-        } else {
-            panic!("#123")
+macro_rules! get_attribute {
+    ($data:ident | $attr:literal as $type:pat => $e:expr) => {
+        match $data.get(&Yaml::String($attr.to_owned())) {
+            Some(s) => match s {
+                $type => Ok($e),
+                _ => Err(concat!($attr, " is not a ", stringify!($type))),
+            },
+            None => Err(concat!($attr, " not found")),
         }
-    })
+    };
 }
+pub(crate) use get_attribute;

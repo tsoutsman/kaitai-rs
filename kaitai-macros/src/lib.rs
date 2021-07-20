@@ -8,6 +8,7 @@ mod utils;
 
 use meta::parse_meta;
 use seq::parse_seq;
+use utils::get_attribute;
 
 use std::path::Path;
 
@@ -40,24 +41,11 @@ pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     let map = match structure {
         Yaml::Hash(hm) => hm,
-        _ => panic!("#125"),
+        _ => panic!("file does not have the correct structure"),
     };
 
-    let meta = match map.get(&Yaml::String("meta".to_owned())) {
-        Some(s) => match s {
-            Yaml::Hash(a) => a,
-            _ => panic!("meta not hash"),
-        },
-        None => panic!("no meta"),
-    };
-
-    let seq = match map.get(&Yaml::String("seq".to_owned())) {
-        Some(s) => match s {
-            Yaml::Array(a) => a,
-            _ => panic!("seq not array"),
-        },
-        None => panic!("no sequence"),
-    };
+    let meta = get_attribute!(map | "meta" as Yaml::Hash(s) => s).expect("could not fetch meta: ");
+    let seq = get_attribute!(map | "seq" as Yaml::Array(a) => a).expect("could not fetch seq: ");
 
     let _parsed_meta = parse_meta(meta);
     let _parsed_seq = parse_seq(seq);

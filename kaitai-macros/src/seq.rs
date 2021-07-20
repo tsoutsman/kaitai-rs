@@ -1,4 +1,4 @@
-use crate::utils::get_item_attribute;
+use crate::utils::get_attribute;
 
 use yaml_rust::Yaml;
 
@@ -31,8 +31,10 @@ pub(crate) fn parse_seq(seq: &[Yaml]) -> Vec<SeqItem> {
     seq.iter()
         .map(|item| match item {
             Yaml::Hash(h) => SeqItem {
-                id: get_item_attribute(h, "id").expect("no id"),
-                ks_type: get_item_attribute(h, "type").expect("no type"),
+                id: get_attribute!(h | "id" as Yaml::String(s) => s.clone())
+                    .expect("error fetching meta > id: "),
+                ks_type: get_attribute!(h | "type" as Yaml::String(s) => s.clone())
+                    .expect("error fetching meta > type: "),
             },
             _ => panic!(),
         })
