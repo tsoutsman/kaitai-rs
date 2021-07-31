@@ -7,5 +7,6 @@ pub(crate) struct MetaInformation {
 }
 
 pub(crate) fn parse_meta(_meta: &yaml::Hash) -> Option<MetaInformation> {
-    todo!()
+    // TODO
+    None
 }

@@ -3,10 +3,12 @@
 #![register_tool(tarpaulin)]
 
 mod meta;
+mod parse;
 mod seq;
 mod utils;
 
 use meta::parse_meta;
+use parse::get_ks_source;
 use seq::parse_seq;
 use utils::get_attribute;
 
@@ -17,17 +19,13 @@ use yaml_rust::Yaml;
 // Since it gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
 /// See crate-level documentation on how to use macro.
 #[tarpaulin::skip]
-#[proc_macro]
-pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let cloned = item.clone();
-    let ast = syn::parse_macro_input!(item as syn::Expr);
+#[proc_macro_derive(KaitaiStruct, attributes(kaitai_source))]
+pub fn derive_kaitai_struct(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast = syn::parse_macro_input!(item as syn::DeriveInput);
 
-    let filename = match ast {
-        syn::Expr::Lit(syn::ExprLit {
-            lit: syn::Lit::Str(ref s),
-            ..
-        }) => s.value(),
-        _ => panic!("invalid input"),
+    let filename = match get_ks_source(&ast) {
+        Some(f) => f,
+        None => panic!("no source file specified"),
     };
 
     // Span::call_site() is a nightly feature.
@@ -50,5 +48,5 @@ pub fn include_kaitai(item: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let _parsed_meta = parse_meta(meta);
     let _parsed_seq = parse_seq(seq);
 
-    cloned
+    proc_macro::TokenStream::new()
 }

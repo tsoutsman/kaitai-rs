@@ -1,9 +1,10 @@
 // The contents of this file are **heavily** inspired by https://github.com/kaitai-io/kaitai_struct_rust_runtime.
 // Although this file is not a copy-paste, without their work this would have been much harder.
-use crate::{runtime::stream::KaitaiStream, Result};
+use crate::{runtime::kaitai_stream::KaitaiStream, Result};
 
-pub trait KaitaiFormat {
-    /// Create a KaitaiObject from a file, relative to the root of the project.
+/// The trait that is implemented by all structs created from a ksy file.
+pub trait KaitaiStruct {
+    /// Create a KaitaitStruct from a file, relative to the root of the project.
     fn from_file(path: &str) -> Result<Self>
     where
         Self: Sized,
@@ -12,7 +13,7 @@ pub trait KaitaiFormat {
         Self::new(&mut f, None, None)
     }
 
-    /// Create a KaitaiObject from a file, relative to the root of the project.
+    /// Create a KaitaiStruct from a file, relative to the root of the project.
     fn from_bytes(bytes: &[u8]) -> Result<Self>
     where
         Self: Sized,
@@ -21,19 +22,21 @@ pub trait KaitaiFormat {
         Self::new(&mut b, None, None)
     }
 
+    #[doc(hidden)]
     fn new<S: KaitaiStream>(
         stream: &mut S,
-        parent: Option<&dyn KaitaiFormat>,
-        root: Option<&dyn KaitaiFormat>,
+        parent: Option<&dyn KaitaiStruct>,
+        root: Option<&dyn KaitaiStruct>,
     ) -> Result<Self>
     where
         Self: Sized;
 
+    #[doc(hidden)]
     fn read<S: KaitaiStream>(
         &mut self,
         stream: &mut S,
-        parent: Option<&dyn KaitaiFormat>,
-        root: Option<&dyn KaitaiFormat>,
+        parent: Option<&dyn KaitaiStruct>,
+        root: Option<&dyn KaitaiStruct>,
     ) -> Result<()>
     where
         Self: Sized;

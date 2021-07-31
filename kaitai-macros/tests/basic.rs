@@ -1,6 +1,10 @@
-use kaitai_macros::include_kaitai;
+use kaitai_macros::*;
+
+#[derive(KaitaiStruct)]
+#[kaitai_source("ksy/gltf_binary.ksy")]
+struct Temp;
 
 #[test]
-fn basic_syntax() {
-    include_kaitai!("ksy/gltf_binary.ksy");
+fn ok() {
+    println!("Hello");
 }

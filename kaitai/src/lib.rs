@@ -23,7 +23,6 @@
 #![allow(dead_code)]
 
 mod errors;
-mod runtime;
 
 pub(crate) use errors::{KaitaiError, Result};
 
@@ -32,9 +31,6 @@ pub(crate) use errors::{KaitaiError, Result};
 //
 
 #[doc(inline)]
-pub use kaitai_macros::include_kaitai;
+pub use kaitai_macros::*;
 
-#[doc(hidden)]
-mod __private {
-    pub use super::runtime::{format::KaitaiFormat, stream::KaitaiStream};
-}
+pub mod runtime;

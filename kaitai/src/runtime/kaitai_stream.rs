@@ -41,10 +41,12 @@ pub enum TerminatorFlags {
     Consume,
 }
 
+/// Trait that adds useful functions to all structs that implement Read and Seek.
 pub trait KaitaiStream: Read + Seek {
     // The trait doesn't require a close method as buffers are automatically closed on drop.
     // The trait doesn't require a seek method as it is already implemented by std::io::Seek.
 
+    #[allow(missing_docs)]
     fn is_eof(&mut self) -> Result<bool> {
         // TODO: benchmark against:
         // let pos = self.pos()?;
@@ -57,10 +59,12 @@ pub trait KaitaiStream: Read + Seek {
         result.map_err(|e| e.into())
     }
 
+    /// Returns the position in the stream.
     fn pos(&mut self) -> Result<u64> {
         self.stream_position().map_err(|e| e.into())
     }
 
+    /// Returns the size of the stream.
     fn size(&mut self) -> Result<u64> {
         // let pos = self.pos()?;
         // let size = self.seek(SeekFrom::End(0))?;
@@ -70,6 +74,7 @@ pub trait KaitaiStream: Read + Seek {
         self.stream_len().map_err(|e| e.into())
     }
 
+    /// Reads a number of bytes from the stream.
     fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>> {
         let mut buffer = vec![0; count];
 
@@ -124,6 +129,7 @@ pub trait KaitaiStream: Read + Seek {
         }
     }
 
+    /// Ensures that the contents of the buffer are equal to the expected value.
     fn ensure_fixed_contents(&mut self, expected: Vec<u8>) -> Result<()> {
         let mut buf = vec![0; expected.len()];
         match self.read_exact(&mut buf) {
