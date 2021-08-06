@@ -129,17 +129,17 @@ pub trait KaitaiStream: Read + Seek {
         }
     }
 
-    /// Ensures that the contents of the buffer are equal to the expected value.
-    fn ensure_fixed_contents(&mut self, expected: Vec<u8>) -> Result<()> {
+    /// Ensures that the contents of the buffer is equal to the expected value.
+    fn ensure_fixed_contents(&mut self, expected: &[u8]) -> Result<()> {
         let mut buf = vec![0; expected.len()];
         match self.read_exact(&mut buf) {
             Ok(_) => {
                 if buf == expected {
                     Ok(())
                 } else {
-                    Err(KaitaiError::UnexpectedFileContents {
+                    Err(KaitaiError::UnexpectedContents {
                         actual: buf,
-                        expected,
+                        expected: Vec::from(expected),
                     })
                 }
             }
@@ -255,11 +255,11 @@ mod tests {
     fn ensure_fixed_contents() {
         let mut buf = new_buf();
 
-        assert!(buf.ensure_fixed_contents(vec![0, 1, 2]).is_ok());
-        assert!(buf.ensure_fixed_contents(vec![3, 4]).is_ok());
+        assert!(buf.ensure_fixed_contents(&vec![0, 1, 2]).is_ok());
+        assert!(buf.ensure_fixed_contents(&vec![3, 4]).is_ok());
         buf.seek(SeekFrom::Current(1)).unwrap();
-        assert!(buf.ensure_fixed_contents(vec![6, 7, 8]).is_ok());
-        assert!(buf.ensure_fixed_contents(vec![8, 9, 10]).is_err());
+        assert!(buf.ensure_fixed_contents(&vec![6, 7, 8]).is_ok());
+        assert!(buf.ensure_fixed_contents(&vec![8, 9, 10]).is_err());
     }
 
     macro_rules! test_read_integer {
