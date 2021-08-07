@@ -51,7 +51,7 @@ pub fn kaitai_source(
 
     let result = match structure {
         Yaml::Hash(hm) => create_type(
-            &hm,
+            hm,
             TypeOptions {
                 ident: Some(struct_item.ident),
                 attrs: struct_item.attrs,
