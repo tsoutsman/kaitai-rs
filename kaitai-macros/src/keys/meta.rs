@@ -35,12 +35,12 @@ impl std::convert::TryFrom<&str> for Endianness {
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub(crate) struct MetaSpec {
+pub struct MetaSpec {
     pub id: String,
     pub endianness: Endianness,
 }
 
-pub(crate) fn get_meta(map: &yaml::Hash) -> Result<MetaSpec> {
+pub fn get_meta(map: &yaml::Hash) -> Result<MetaSpec> {
     let meta = get_attribute!(map | "meta" as Yaml::Hash(h) => h)?;
 
     let id = get_attribute!(meta | "id" as Yaml::String(s) => s.clone())?;

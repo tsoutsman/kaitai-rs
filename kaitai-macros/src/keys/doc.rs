@@ -17,7 +17,7 @@ pub fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
         Ok(d) => Some(d.clone()),
         Err(e) => match e {
             MacroError::InvalidAttrType { .. } => return Err(e),
-            MacroError::AttrNotFound(_) => None,
+            MacroError::RequiredAttrNotFound(_) => None,
             _ => unreachable!(),
         },
     };
@@ -26,7 +26,7 @@ pub fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
         Ok(d) => Some(d.clone()),
         Err(e) => match e {
             MacroError::InvalidAttrType { .. } => return Err(e),
-            MacroError::AttrNotFound(_) => None,
+            MacroError::RequiredAttrNotFound(_) => None,
             _ => unreachable!(),
         },
     };

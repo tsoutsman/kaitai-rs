@@ -62,7 +62,10 @@ mod tests {
 
         let result = get_seq(&input);
 
-        assert_eq!(result, Err(MacroError::AttrNotFound("seq".to_owned())));
+        assert_eq!(
+            result,
+            Err(MacroError::RequiredAttrNotFound("seq".to_owned()))
+        );
     }
 
     #[test]
@@ -77,7 +80,10 @@ mod tests {
 
         let result = get_seq(&input);
 
-        assert_eq!(result, Err(MacroError::AttrNotFound("type".to_owned())));
+        assert_eq!(
+            result,
+            Err(MacroError::RequiredAttrNotFound("type".to_owned()))
+        );
     }
 
     #[test]

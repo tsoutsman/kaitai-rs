@@ -10,7 +10,9 @@ macro_rules! get_attribute {
                     pat: stringify!($pat).to_owned(),
                 }),
             },
-            None => Err(crate::utils::MacroError::AttrNotFound($attr.to_owned())),
+            None => Err(crate::utils::MacroError::RequiredAttrNotFound(
+                $attr.to_owned(),
+            )),
         }
     };
 }
@@ -27,5 +29,5 @@ pub enum MacroError {
     #[error("{attr} does not match {pat}")]
     InvalidAttrType { attr: String, pat: String },
     #[error("{0} not found")]
-    AttrNotFound(String),
+    RequiredAttrNotFound(String),
 }
