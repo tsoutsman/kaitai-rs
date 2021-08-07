@@ -25,7 +25,7 @@ seq:
   - id: tail
     type: u4
 ```
-The rust code to read a `basic_be` buffer would look something like this.
+The rust code to read a `basic_be` buffer would look something like this:
 ```rust
 #[kaitai_source("../tests/formats/basic_be.ksy")]
 struct BasicBigEndian;
