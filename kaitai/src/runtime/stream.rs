@@ -255,11 +255,11 @@ mod tests {
     fn ensure_fixed_contents() {
         let mut buf = new_buf();
 
-        assert!(buf.ensure_fixed_contents(&vec![0, 1, 2]).is_ok());
-        assert!(buf.ensure_fixed_contents(&vec![3, 4]).is_ok());
+        assert!(buf.ensure_fixed_contents(&[0, 1, 2]).is_ok());
+        assert!(buf.ensure_fixed_contents(&[3, 4]).is_ok());
         buf.seek(SeekFrom::Current(1)).unwrap();
-        assert!(buf.ensure_fixed_contents(&vec![6, 7, 8]).is_ok());
-        assert!(buf.ensure_fixed_contents(&vec![8, 9, 10]).is_err());
+        assert!(buf.ensure_fixed_contents(&[6, 7, 8]).is_ok());
+        assert!(buf.ensure_fixed_contents(&[8, 9, 10]).is_err());
     }
 
     macro_rules! test_read_integer {
@@ -293,24 +293,24 @@ mod tests {
     #[test]
     fn read_f4le() {
         let mut buf = Cursor::new(vec![0, 0, 128, 62]);
-        assert_eq!(buf.read_f4le().unwrap(), 0.25);
+        assert!((buf.read_f4le().unwrap() - 0.25).abs() < f32::EPSILON);
     }
 
     #[test]
     fn read_f4be() {
         let mut buf = Cursor::new(vec![62, 128, 0, 0]);
-        assert_eq!(buf.read_f4be().unwrap(), 0.25);
+        assert!((buf.read_f4be().unwrap() - 0.25).abs() < f32::EPSILON);
     }
 
     #[test]
     fn read_f8le() {
         let mut buf = Cursor::new(vec![0, 0, 0, 0, 0, 0, 208, 63]);
-        assert_eq!(buf.read_f8le().unwrap(), 0.25);
+        assert!((buf.read_f8le().unwrap() - 0.25).abs() < f64::EPSILON);
     }
 
     #[test]
     fn read_f8be() {
         let mut buf = Cursor::new(vec![63, 208, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(buf.read_f8be().unwrap(), 0.25);
+        assert!((buf.read_f8be().unwrap() - 0.25).abs() < f64::EPSILON);
     }
 }
