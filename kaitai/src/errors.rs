@@ -6,7 +6,7 @@ pub type Result<T> = std::result::Result<T, KaitaiError>;
 /// Enum representing the potential errors emitted by this crate.
 #[derive(Debug, Error)]
 pub enum KaitaiError {
-    /// Returned by the [`read_byte_term`] function in [`KaitaiStream`](crate::runtime::KaitaiStream)
+    /// Returned by the `read_byte_term` function in [`KaitaiStream`](crate::runtime::KaitaiStream)
     /// when the cursor reaches the end of the buffer before the terminator is reached. This should
     /// not necessarily be treated as an error but it should be differentiated from an
     /// [`IoError`](KaitaiError::IoError).
