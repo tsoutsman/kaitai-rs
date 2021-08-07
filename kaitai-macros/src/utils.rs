@@ -24,7 +24,7 @@ pub enum MacroError {
     InvalidAttribute(yaml_rust::Yaml),
     #[error("endianness must be `le` or `be`")]
     InvalidEndianness,
-    #[error("{attr} cannot be converted using {pat}")]
+    #[error("{attr} does not match {pat}")]
     InvalidAttrType { attr: String, pat: String },
     #[error("{0} not found")]
     AttrNotFound(String),
