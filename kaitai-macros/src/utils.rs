@@ -1,5 +1,19 @@
 use thiserror::Error;
 
+pub type Result<T> = std::result::Result<T, MacroError>;
+
+#[derive(Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub enum MacroError {
+    #[error("attribute in seq invalid: {0:?}")]
+    InvalidAttribute(yaml_rust::Yaml),
+    #[error("endianness must be `le` or `be`")]
+    InvalidEndianness,
+    #[error("{attr} does not match {pat}")]
+    InvalidAttrType { attr: String, pat: String },
+    #[error("{0} not found")]
+    RequiredAttrNotFound(String),
+}
+
 macro_rules! get_attribute {
     ($data:ident | $attr:literal as $pat:pat => $e:expr) => {
         match $data.get(&Yaml::String($attr.to_owned())) {
@@ -18,16 +32,34 @@ macro_rules! get_attribute {
 }
 pub(crate) use get_attribute;
 
-pub type Result<T> = std::result::Result<T, MacroError>;
+/// Converts a snake case string to an upper camel case string.
+#[allow(dead_code)]
+pub fn sc_to_ucc(string: &str) -> String {
+    let mut result = String::new();
 
-#[derive(Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum MacroError {
-    #[error("attribute in seq invalid: {0:?}")]
-    InvalidAttribute(yaml_rust::Yaml),
-    #[error("endianness must be `le` or `be`")]
-    InvalidEndianness,
-    #[error("{attr} does not match {pat}")]
-    InvalidAttrType { attr: String, pat: String },
-    #[error("{0} not found")]
-    RequiredAttrNotFound(String),
+    for w in string.split('_') {
+        let first_letter = w[0..1].to_uppercase();
+        let rest_of_word = &w[1..w.len()];
+        result.push_str(&first_letter);
+        result.push_str(rest_of_word);
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sc_to_ucc_test() {
+        let input = vec!["example_id", "oneword", "num_at_end1", "num_at_end_2"];
+
+        let output: Vec<String> = input.into_iter().map(|s| sc_to_ucc(s)).collect();
+
+        assert_eq!(
+            output,
+            vec!["ExampleId", "Oneword", "NumAtEnd1", "NumAtEnd2"]
+        );
+    }
 }
