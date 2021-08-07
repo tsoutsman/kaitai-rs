@@ -1,17 +1,17 @@
-use crate::utils::get_attribute;
+use crate::utils::{get_attribute, MacroError, Result};
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
-use yaml_rust::Yaml;
+use yaml_rust::{yaml, Yaml};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub(crate) struct SeqItem {
+pub struct Attribute {
     pub id: Ident,
     pub ks_type: String,
 }
 
-impl SeqItem {
+impl Attribute {
     #[allow(dead_code)]
     pub fn rust_type(&self) -> TokenStream {
         match &self.ks_type[..] {
@@ -30,18 +30,19 @@ impl SeqItem {
     }
 }
 
-pub(crate) fn parse_seq(seq: &[Yaml]) -> Vec<SeqItem> {
-    seq.iter()
-        .map(|item| match item {
-            Yaml::Hash(h) => SeqItem {
-                id:
-                // TODO actually give the correct span
-                    get_attribute!(h | "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
-                        .expect("error fetching seq > id: "),
-                ks_type: get_attribute!(h | "type" as Yaml::String(s) => s.clone())
-                    .expect("error fetching seq > type: "),
+pub fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
+    let seq = get_attribute!(map | "seq" as Yaml::Array(a) => a)?;
+    let mut result = Vec::new();
+
+    for item in seq {
+        result.push(match item {
+            Yaml::Hash(h) => Attribute {
+                id: get_attribute!(h | "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))?,
+                ks_type: get_attribute!(h | "type" as Yaml::String(s) => s.clone())?,
             },
-            _ => panic!(),
-        })
-        .collect()
+            _ => return Err(MacroError::InvalidAttribute(item.clone())),
+        });
+    }
+
+    Ok(result)
 }

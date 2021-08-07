@@ -1,6 +1,9 @@
 use std::convert::TryFrom;
 
-use crate::{get_attribute, utils::MacroError};
+use crate::{
+    get_attribute,
+    utils::{MacroError, Result},
+};
 use yaml_rust::{yaml, Yaml};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -22,7 +25,7 @@ impl std::fmt::Display for Endianness {
 impl std::convert::TryFrom<&str> for Endianness {
     type Error = MacroError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         match value {
             "le" => Ok(Endianness::Le),
             "be" => Ok(Endianness::Be),
@@ -37,9 +40,12 @@ pub(crate) struct MetaSpec {
     pub endianness: Endianness,
 }
 
-pub(crate) fn parse_meta(meta: &yaml::Hash) -> Result<MetaSpec, MacroError> {
+pub(crate) fn get_meta(map: &yaml::Hash) -> Result<MetaSpec> {
+    let meta = get_attribute!(map | "meta" as Yaml::Hash(h) => h)?;
+
     let id = get_attribute!(meta | "id" as Yaml::String(s) => s.clone())?;
     let endianness: Endianness =
         Endianness::try_from(get_attribute!(meta | "endian" as Yaml::String(s) => s)?.as_ref())?;
+
     Ok(MetaSpec { id, endianness })
 }

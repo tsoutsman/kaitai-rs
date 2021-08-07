@@ -16,8 +16,12 @@ macro_rules! get_attribute {
 }
 pub(crate) use get_attribute;
 
+pub type Result<T> = std::result::Result<T, MacroError>;
+
 #[derive(Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum MacroError {
+    #[error("attribute in seq invalid: {0:?}")]
+    InvalidAttribute(yaml_rust::Yaml),
     #[error("endianness must be `le` or `be`")]
     InvalidEndianness,
     #[error("{attr} cannot be converted using {pat}")]
