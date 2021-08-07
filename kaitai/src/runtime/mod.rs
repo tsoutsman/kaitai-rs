@@ -1,7 +1,7 @@
-//! Module containing the traits that are derived by this crate.
+//! Module containing the traits implemented by the [`kaitai_source`](kaitai_macros::kaitai_source) macro.
 
-mod kaitai_stream;
-mod kaitai_struct;
+mod kstruct;
+mod stream;
 
-pub use kaitai_stream::KaitaiStream;
-pub use kaitai_struct::KaitaiStruct;
+pub use kstruct::KaitaiStruct;
+pub use stream::KaitaiStream;

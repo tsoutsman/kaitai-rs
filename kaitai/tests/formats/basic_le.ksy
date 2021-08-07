@@ -1,6 +1,6 @@
 meta:
   id: basic
-  endian: be
+  endian: le
 seq:
   - id: header
     type: u2

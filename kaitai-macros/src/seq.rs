@@ -8,7 +8,7 @@ use yaml_rust::Yaml;
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub(crate) struct SeqItem {
     pub id: Ident,
-    ks_type: String,
+    pub ks_type: String,
 }
 
 impl SeqItem {
@@ -37,9 +37,9 @@ pub(crate) fn parse_seq(seq: &[Yaml]) -> Vec<SeqItem> {
                 id:
                 // TODO actually give the correct span
                     get_attribute!(h | "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
-                        .expect("error fetching meta > id: "),
+                        .expect("error fetching seq > id: "),
                 ks_type: get_attribute!(h | "type" as Yaml::String(s) => s.clone())
-                    .expect("error fetching meta > type: "),
+                    .expect("error fetching seq > type: "),
             },
             _ => panic!(),
         })

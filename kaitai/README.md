@@ -13,7 +13,8 @@ A macro for compiling Kaitai Struct into Rust.
 
 ## Syntax
 ```rust
-include_kaitai!("filepath");
+#[kaitai_source("../tests/formats/basic_be.ksy")]
+struct BasicBigEndian;
 ```
 ## Semantics
 The file is located relative to the current file (similarly to how modules are found).

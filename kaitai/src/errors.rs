@@ -1,14 +1,15 @@
 use thiserror::Error;
 
-/// The type returned by [`KaitaiStruct`] functions.
+/// The type returned by [`KaitaiStruct`](crate::runtime::KaitaiStruct) functions.
 pub type Result<T> = std::result::Result<T, KaitaiError>;
 
 /// Enum representing the potential errors emitted by this crate.
 #[derive(Debug, Error)]
 pub enum KaitaiError {
-    /// Returned by the [`read_byte_term`] function in [`KaitaiStream`] when the cursor reaches the end
-    /// of the buffer before the terminator is reached. This should not necessarily be treated as an
-    /// error but it should be differentiated from an [`IoError`].
+    /// Returned by the [`read_byte_term`] function in [`KaitaiStream`](crate::runtime::KaitaiStream)
+    /// when the cursor reaches the end of the buffer before the terminator is reached. This should
+    /// not necessarily be treated as an error but it should be differentiated from an
+    /// [`IoError`](KaitaiError::IoError).
     #[error("end of stream reached, but no terminator {0} found")]
     EofBeforeTerminator(char),
 
