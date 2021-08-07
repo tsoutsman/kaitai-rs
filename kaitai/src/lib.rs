@@ -28,7 +28,7 @@
 //!     println!("head: {}", file.body);
 //!     println!("body: {}", file.body);
 //!     println!("tail: {}", file.body);
-//!     # Ok(())
+//! #   Ok(())
 //! }
 //! ```
 //! # Semantics

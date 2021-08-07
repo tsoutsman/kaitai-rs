@@ -36,7 +36,6 @@ fn main() -> Result<()> {
     println!("head: {}", file.body);
     println!("body: {}", file.body);
     println!("tail: {}", file.body);
-    # Ok(())
 }
 ```
 ## Semantics
