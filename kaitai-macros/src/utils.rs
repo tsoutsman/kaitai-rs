@@ -59,7 +59,7 @@ mod tests {
     fn sc_to_ucc_test() {
         let input = vec!["example_id", "oneword", "num_at_end1", "num_at_end_2"];
 
-        let output: Vec<String> = input.into_iter().map(|s| sc_to_ucc(s)).collect();
+        let output: Vec<String> = input.into_iter().map(sc_to_ucc).collect();
 
         assert_eq!(
             output,

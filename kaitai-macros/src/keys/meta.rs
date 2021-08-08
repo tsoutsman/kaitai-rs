@@ -2,9 +2,10 @@ use std::convert::TryFrom;
 
 use crate::{
     get_attribute,
+    types::TypeInfo,
     utils::{MacroError, Result},
 };
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::Yaml;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Endianness {
@@ -40,8 +41,23 @@ pub struct MetaSpec {
     pub endianness: Endianness,
 }
 
-pub fn get_meta(map: &yaml::Hash) -> Result<MetaSpec> {
-    let meta = get_attribute!(map | "meta" as Yaml::Hash(h) => h)?;
+pub fn get_meta(info: &TypeInfo) -> Result<MetaSpec> {
+    let map = info.map;
+    let meta = match get_attribute!(map | "meta" as Yaml::Hash(h) => h) {
+        // The type has a `MetaSpec`. It is assumed that the provided `MetaSpec` overwrites the
+        // inherited one.
+        Ok(m) => m,
+        Err(MacroError::RequiredAttrNotFound(a)) => {
+            if let Some(m) = info.inherited_meta.clone() {
+                // The type doesn't have a `MetaSpec` but it inherits one.
+                return Ok(m);
+            } else {
+                // The type doesn't have a `MetaSpec` and does not inherit any.
+                return Err(MacroError::RequiredAttrNotFound(a));
+            }
+        }
+        Err(e) => return Err(e),
+    };
 
     let id = get_attribute!(meta | "id" as Yaml::String(s) => s.clone())?;
     let endianness: Endianness =

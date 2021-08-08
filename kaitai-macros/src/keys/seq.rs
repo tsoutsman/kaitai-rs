@@ -1,5 +1,5 @@
 use crate::{
-    keys::meta::get_meta,
+    keys::{meta::get_meta, types::TypeInfo},
     utils::{get_attribute, sc_to_ucc, MacroError, Result},
 };
 
@@ -80,9 +80,9 @@ pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
     Ok(result)
 }
 
-pub fn gen_field_assignments(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
-    let meta = get_meta(map)?;
-    let seq = get_seq(map)?;
+pub fn gen_field_assignments(info: &TypeInfo) -> Result<Vec<TokenStream>> {
+    let meta = get_meta(info)?;
+    let seq = get_seq(info.map)?;
     let mut result = Vec::new();
 
     for attr in seq {
@@ -99,7 +99,7 @@ pub fn gen_field_assignments(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
             }
             TypeDef::Custom(_) => {
                 func_name.push_str(&sc_to_ucc(&attr.ks_type));
-                func_name.push_str("::from(buf)?");
+                func_name.push_str("::new(buf)?");
             }
         }
 

@@ -49,14 +49,13 @@ pub fn kaitai_source(
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
 
     let result = match structure {
-        Yaml::Hash(hm) => types::gen_type(
-            hm,
-            types::TypeOptions {
-                ident: Some(struct_item.ident),
-                attrs: struct_item.attrs,
-                visibility: struct_item.vis,
-            },
-        ),
+        Yaml::Hash(map) => types::gen_type(&types::TypeInfo {
+            map,
+            ident: struct_item.ident,
+            attrs: struct_item.attrs,
+            visibility: struct_item.vis,
+            inherited_meta: None,
+        }),
         _ => panic!("file does not have the correct structure"),
     };
     result.unwrap().into()

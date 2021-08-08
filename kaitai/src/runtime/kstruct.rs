@@ -12,17 +12,17 @@ where
     /// Create a KaitaitStruct from a file, relative to the root of the project.
     fn from_file(path: &str) -> Result<Self> {
         let mut f = std::fs::File::open(path)?;
-        Self::from(&mut f)
+        Self::new(&mut f)
     }
 
     /// Create a KaitaiStruct from a file, relative to the root of the project.
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut b = std::io::Cursor::new(bytes);
-        Self::from(&mut b)
+        Self::new(&mut b)
     }
 
     #[doc(hidden)]
-    fn from<S: KaitaiStream>(stream: &mut S) -> Result<Self>;
+    fn new<S: KaitaiStream>(stream: &mut S) -> Result<Self>;
 
     #[doc(hidden)]
     fn read<S: KaitaiStream>(&mut self, stream: &mut S) -> Result<()>;
