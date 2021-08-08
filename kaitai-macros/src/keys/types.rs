@@ -1,14 +1,18 @@
 use crate::{
-    keys::{doc, meta, seq},
-    utils::{get_attribute, MacroError},
+    keys::{
+        doc, meta,
+        seq::{self, TypeDef},
+    },
+    utils::{get_attribute, sc_to_ucc, MacroError},
     Result,
 };
 
+use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use yaml_rust::{yaml, Yaml};
 
-pub fn get_types(map: &yaml::Hash) -> Result<Vec<yaml::Hash>> {
-    let types = match get_attribute!(map | "types" as Yaml::Array(a) => a) {
+pub fn get_types(map: &yaml::Hash) -> Result<Vec<(Ident, yaml::Hash)>> {
+    let types = match get_attribute!(map | "types" as Yaml::Hash(h) => h) {
         Ok(t) => t,
         // types is not a required field in ksy.
         Err(MacroError::RequiredAttrNotFound(_)) => return Ok(Vec::new()),
@@ -16,13 +20,27 @@ pub fn get_types(map: &yaml::Hash) -> Result<Vec<yaml::Hash>> {
     };
     let mut result = Vec::new();
 
-    for ty in types {
+    for (name, ty) in types {
+        let ident = {
+            let name = match name {
+                Yaml::String(s) => s,
+                _ => {
+                    return Err(MacroError::InvalidAttrType {
+                        attr: "type name".to_owned(),
+                        pat: "Yaml::String(s)".to_owned(),
+                        actual: name.clone(),
+                    })
+                }
+            };
+            Ident::new(name, Span::call_site())
+        };
         match ty {
-            Yaml::Hash(h) => result.push(h.clone()),
+            Yaml::Hash(h) => result.push((ident, h.clone())),
             _ => {
                 return Err(MacroError::InvalidAttrType {
                     attr: "type".to_owned(),
                     pat: "Yaml::Hash(h)".to_owned(),
+                    actual: ty.clone(),
                 })
             }
         }
@@ -60,17 +78,26 @@ pub fn create_type(map: &yaml::Hash, options: TypeOptions) -> Result<proc_macro2
             quote! { #ty }
         })
         .collect();
-    let read_functions: Vec<proc_macro2::TokenStream> = seq
+    let read_function_calls: Vec<proc_macro2::TokenStream> = seq
         .iter()
         .map(|field| {
             let mut func_name = String::new();
 
-            func_name.push_str("read_");
-            func_name.push_str(&field.ks_type);
-            func_name.push_str(&meta.endianness.to_string());
+            match field.rust_type() {
+                TypeDef::Inbuilt(_) => {
+                    func_name.push_str("buf.read_");
+                    func_name.push_str(&field.ks_type);
+                    func_name.push_str(&meta.endianness.to_string());
+                    func_name.push_str("()?");
+                }
+                TypeDef::Custom(_) => {
+                    func_name.push_str(&sc_to_ucc(&field.ks_type));
+                    func_name.push_str("::from(buf)?");
+                }
+            }
 
-            let func_ident = proc_macro2::Ident::new(&func_name, proc_macro2::Span::call_site());
-            quote! { #func_ident }
+            // TODO get rid of unwrap
+            func_name.parse().unwrap()
         })
         .collect();
 
@@ -120,20 +147,12 @@ pub fn create_type(map: &yaml::Hash, options: TypeOptions) -> Result<proc_macro2
         // attributed must be applied manually.
         #[automatically_derived]
         impl ::kaitai::runtime::KaitaiStruct for #struct_ident {
-            fn from<S: ::kaitai::runtime::KaitaiStream>(
-                buf: &mut S,
-                _: Option<&dyn::kaitai::runtime::KaitaiStruct>,
-                _: Option<&dyn::kaitai::runtime::KaitaiStruct>, ) -> ::kaitai::Result<Self> {
+            fn from<S: ::kaitai::runtime::KaitaiStream>(buf: &mut S) -> ::kaitai::Result<Self> {
                 Ok(#struct_ident {
-                    #(#fields: buf.#read_functions()?,)*
+                    #(#fields: #read_function_calls,)*
                 })
             }
-            fn read<S: ::kaitai::runtime::KaitaiStream>(
-                &mut self,
-                _: &mut S,
-                _: Option<&dyn::kaitai::runtime::KaitaiStruct>,
-                _: Option<&dyn::kaitai::runtime::KaitaiStruct>,
-            ) -> ::kaitai::Result<()> {
+            fn read<S: ::kaitai::runtime::KaitaiStream>(&mut self, _: &mut S) -> ::kaitai::Result<()> {
                 todo!();
             }
         }

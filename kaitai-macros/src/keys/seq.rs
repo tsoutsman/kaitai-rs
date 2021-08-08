@@ -1,7 +1,7 @@
-use crate::utils::{get_attribute, MacroError, Result};
+use crate::utils::{get_attribute, sc_to_ucc, MacroError, Result};
 
 use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::Ident;
 use yaml_rust::{yaml, Yaml};
 
@@ -11,20 +11,38 @@ pub struct Attribute {
     pub ks_type: String,
 }
 
+pub enum TypeDef {
+    Inbuilt(TokenStream),
+    Custom(TokenStream),
+}
+
+impl ToTokens for TypeDef {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match &self {
+            TypeDef::Inbuilt(t) => tokens.extend(std::iter::once(t.clone())),
+            TypeDef::Custom(t) => tokens.extend(std::iter::once(t.clone())),
+        };
+    }
+}
+
 impl Attribute {
-    pub fn rust_type(&self) -> TokenStream {
+    pub fn rust_type(&self) -> TypeDef {
         match &self.ks_type[..] {
-            "u1" => quote! { u8 },
-            "u2" => quote! { u16 },
-            "u4" => quote! { u32 },
-            "u8" => quote! { u64 },
-            "s1" => quote! { i8 },
-            "s2" => quote! { i16 },
-            "s4" => quote! { i32 },
-            "s8" => quote! { i64 },
-            "f4" => quote! { f32 },
-            "f8" => quote! { f64 },
-            &_ => panic!(),
+            "u1" => TypeDef::Inbuilt(quote! { u8 }),
+            "u2" => TypeDef::Inbuilt(quote! { u16 }),
+            "u4" => TypeDef::Inbuilt(quote! { u32 }),
+            "u8" => TypeDef::Inbuilt(quote! { u64 }),
+            "s1" => TypeDef::Inbuilt(quote! { i8 }),
+            "s2" => TypeDef::Inbuilt(quote! { i16 }),
+            "s4" => TypeDef::Inbuilt(quote! { i32 }),
+            "s8" => TypeDef::Inbuilt(quote! { i64 }),
+            "f4" => TypeDef::Inbuilt(quote! { f32 }),
+            "f8" => TypeDef::Inbuilt(quote! { f64 }),
+            // The type is a user-defined type, meaning a struct has been generated somewhere with
+            // the name in ucc.
+            &_ => TypeDef::Custom(
+                Ident::new(&sc_to_ucc(&self.ks_type), Span::call_site()).to_token_stream(),
+            ),
         }
     }
 }
@@ -103,7 +121,8 @@ mod tests {
             result,
             Err(MacroError::InvalidAttrType {
                 attr: "id".to_owned(),
-                pat: "Yaml::String(s)".to_owned()
+                pat: "Yaml::String(s)".to_owned(),
+                actual: Yaml::Hash(yaml::Hash::new())
             })
         );
     }

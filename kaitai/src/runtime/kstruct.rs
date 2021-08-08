@@ -5,41 +5,25 @@ use crate::{runtime::KaitaiStream, Result};
 // TODO fixed the Sizable issue :)
 
 /// The trait that is implemented by all structs created from a ksy file.
-pub trait KaitaiStruct {
+pub trait KaitaiStruct
+where
+    Self: Sized,
+{
     /// Create a KaitaitStruct from a file, relative to the root of the project.
-    fn from_file(path: &str) -> Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_file(path: &str) -> Result<Self> {
         let mut f = std::fs::File::open(path)?;
-        Self::from(&mut f, None, None)
+        Self::from(&mut f)
     }
 
     /// Create a KaitaiStruct from a file, relative to the root of the project.
-    fn from_bytes(bytes: &[u8]) -> Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut b = std::io::Cursor::new(bytes);
-        Self::from(&mut b, None, None)
+        Self::from(&mut b)
     }
 
     #[doc(hidden)]
-    fn from<S: KaitaiStream>(
-        stream: &mut S,
-        parent: Option<&dyn KaitaiStruct>,
-        root: Option<&dyn KaitaiStruct>,
-    ) -> Result<Self>
-    where
-        Self: Sized;
+    fn from<S: KaitaiStream>(stream: &mut S) -> Result<Self>;
 
     #[doc(hidden)]
-    fn read<S: KaitaiStream>(
-        &mut self,
-        stream: &mut S,
-        parent: Option<&dyn KaitaiStruct>,
-        root: Option<&dyn KaitaiStruct>,
-    ) -> Result<()>
-    where
-        Self: Sized;
+    fn read<S: KaitaiStream>(&mut self, stream: &mut S) -> Result<()>;
 }
