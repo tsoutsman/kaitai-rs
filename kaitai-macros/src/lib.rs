@@ -49,7 +49,7 @@ pub fn kaitai_source(
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
 
     let result = match structure {
-        Yaml::Hash(hm) => types::create_type(
+        Yaml::Hash(hm) => types::gen_type(
             hm,
             types::TypeOptions {
                 ident: Some(struct_item.ident),

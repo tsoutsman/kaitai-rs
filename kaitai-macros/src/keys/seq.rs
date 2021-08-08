@@ -1,4 +1,7 @@
-use crate::utils::{get_attribute, sc_to_ucc, MacroError, Result};
+use crate::{
+    keys::meta::get_meta,
+    utils::{get_attribute, sc_to_ucc, MacroError, Result},
+};
 
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
@@ -47,7 +50,7 @@ impl Attribute {
     }
 }
 
-pub fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
+fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
     let seq = get_attribute!(map | "seq" as Yaml::Array(a) => a)?;
     let mut result = Vec::new();
 
@@ -59,6 +62,49 @@ pub fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
             },
             _ => return Err(MacroError::InvalidAttribute(item.clone())),
         });
+    }
+
+    Ok(result)
+}
+
+pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
+    let seq = get_seq(map)?;
+    let mut result = Vec::new();
+
+    for attr in seq {
+        let id = &attr.id;
+        let ty = attr.rust_type();
+        result.push(quote! { pub #id: #ty });
+    }
+
+    Ok(result)
+}
+
+pub fn gen_field_assignments(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
+    let meta = get_meta(map)?;
+    let seq = get_seq(map)?;
+    let mut result = Vec::new();
+
+    for attr in seq {
+        let mut func_name = String::new();
+
+        func_name.push_str(&attr.id.to_string());
+        func_name.push_str(": ");
+        match attr.rust_type() {
+            TypeDef::Inbuilt(_) => {
+                func_name.push_str("buf.read_");
+                func_name.push_str(&attr.ks_type);
+                func_name.push_str(&meta.endianness.to_string());
+                func_name.push_str("()?");
+            }
+            TypeDef::Custom(_) => {
+                func_name.push_str(&sc_to_ucc(&attr.ks_type));
+                func_name.push_str("::from(buf)?");
+            }
+        }
+
+        // TODO get rid of unwrap
+        result.push(func_name.parse().unwrap());
     }
 
     Ok(result)

@@ -1,5 +1,7 @@
 use crate::utils::{get_attribute, MacroError, Result};
 
+use proc_macro2::TokenStream;
+use quote::quote;
 use yaml_rust::{yaml, Yaml};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
@@ -12,7 +14,7 @@ pub struct DocSpec {
     pub reference: Option<String>,
 }
 
-pub fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
+fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
     let description = match get_attribute!(map | "doc" as Yaml::String(s) => s) {
         Ok(d) => Some(d.clone()),
         Err(e) => match e {
@@ -34,5 +36,31 @@ pub fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
     Ok(DocSpec {
         description,
         reference,
+    })
+}
+
+pub fn gen_doc_comment(map: &yaml::Hash) -> Result<TokenStream> {
+    let doc = get_doc(map)?;
+
+    if doc.description.is_none() && doc.reference.is_none() {
+        return Ok(TokenStream::new());
+    }
+
+    let description = match doc.description {
+        Some(d) => d,
+        None => "".to_owned(),
+    };
+    let reference = match doc.reference {
+        Some(d) => {
+            let mut result = String::new();
+            result.push_str("\n### Reference\n");
+            result.push_str(&d);
+            result
+        }
+        None => "".to_owned(),
+    };
+
+    Ok(quote! {
+        #[doc = concat!(#description, #reference)]
     })
 }
