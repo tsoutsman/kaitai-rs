@@ -1,11 +1,11 @@
 [package]
 name = "kaitai"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Klim Tsoutsman <klimusha@gmail.com>"]
 edition = "2018"
 description = "A macro for compiling Kaitai Struct into Rust."
 readme = true
-repository = "https://www.github.com/TypicalFork/kaitai-rs"
+repository = "https://www.github.com/tsoutsman/kaitai-rs"
 license = "MIT OR Apache-2.0"
 keywords = ["binary", "cross-platform", "ks", "ksy", "ksc"]
 # The last 3 categories refer to Kaitai Struct itself. I think it's fair to put them here as this
