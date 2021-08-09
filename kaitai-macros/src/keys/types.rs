@@ -23,18 +23,15 @@ pub fn get_types(info: &TypeInfo) -> Result<Vec<(Ident, yaml::Hash)>> {
     let mut result = Vec::new();
 
     for (name, ty) in types {
-        let ident = {
-            let name = match name {
-                Yaml::String(s) => s,
-                _ => {
-                    return Err(MacroError::InvalidAttrType {
-                        attr: "type name".to_owned(),
-                        pat: "Yaml::String(s)".to_owned(),
-                        actual: name.clone(),
-                    })
-                }
-            };
-            Ident::new(&sc_to_ucc(name), Span::call_site())
+        let ident = match name {
+            Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site()),
+            _ => {
+                return Err(MacroError::InvalidAttrType {
+                    attr: "type name".to_owned(),
+                    pat: "Yaml::String(s)".to_owned(),
+                    actual: name.clone(),
+                })
+            }
         };
         match ty {
             Yaml::Hash(h) => result.push((ident, h.clone())),

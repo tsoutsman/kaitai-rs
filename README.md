@@ -7,7 +7,7 @@
 [![dependency status](https://deps.rs/crate/kaitai/0.1.0/status.svg)](https://deps.rs/crate/kaitai/0.1.0)
 [![codecov](https://codecov.io/gh/TypicalFork/kaitai-rs/branch/main/graph/badge.svg?token=HDMRR070HW)](https://codecov.io/gh/TypicalFork/kaitai-rs)
 
-This crate is still very much a work in progress; it does not work.
+This crate is still very much a work in progress; it has a **very** limited feature set.
 
 A macro for compiling Kaitai Struct into Rust.
 
@@ -41,7 +41,7 @@ fn main() -> Result<()> {
 ## Semantics
 The filepath provided to `kaitai_source` is taken relative to the current file, similarly to how
 modules are found. However, the filepath provided to `from_file` is taken relative to the root
-of the directory, like [`std::fs::File::open`].
+of the directory, like `std::fs::File::open`.
 
 ## License
 

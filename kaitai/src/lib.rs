@@ -1,4 +1,4 @@
-//! This crate is still very much a work in progress; it does not work.
+//! This crate is still very much a work in progress; it has a **very** limited feature set.
 //!
 //! A macro for compiling Kaitai Struct into Rust.
 //!
