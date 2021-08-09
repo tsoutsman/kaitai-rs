@@ -1,5 +1,5 @@
 use crate::{
-    utils::{get_attribute, sc_to_ucc, MacroError},
+    utils::{assert_pattern, get_attribute, sc_to_ucc, MacroError},
     Result,
 };
 
@@ -13,60 +13,40 @@ pub struct EnumSpec {
 }
 
 fn _get_enums(map: &yaml::Hash) -> Result<Vec<EnumSpec>> {
-    let enums = match get_attribute!(map | "enums" as Yaml::Hash(m) => m) {
+    let enums = match get_attribute!(map; "enums" as Yaml::Hash(m) => m; "get_enums") {
         Ok(e) => e,
-        Err(MacroError::RequiredAttrNotFound(_)) => return Ok(Vec::new()),
+        Err(MacroError::RequiredAttrNotFound(..)) => return Ok(Vec::new()),
         Err(e) => return Err(e),
     };
 
     let mut result = Vec::new();
 
     for (enum_ident, variants) in enums {
-        let enum_ident = match enum_ident {
-            Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site()),
-            _ => {
-                return Err(MacroError::InvalidAttrType {
-                    attr: "enum name".to_owned(),
-                    pat: "Yaml::String(s)".to_owned(),
-                    actual: enum_ident.clone(),
-                })
-            }
-        };
+        let enum_ident = assert_pattern!(
+            enum_ident;
+            Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site());
+            attr: "enum ident", st: "get_enums";
+        );
 
-        let variants = match variants {
-            Yaml::Hash(m) => m,
-            _ => {
-                return Err(MacroError::InvalidAttrType {
-                    attr: "enum variants".to_owned(),
-                    pat: "Yaml::Hash(m)".to_owned(),
-                    actual: variants.clone(),
-                })
-            }
-        };
+        let variants = assert_pattern!(
+            variants;
+            Yaml::Hash(m) => m;
+            attr: "variant map", st: "get_enums";
+        );
 
         let mut values = Vec::new();
 
         for (variant_value, variant_ident) in variants {
-            let variant_ident = match variant_ident {
-                Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site()),
-                _ => {
-                    return Err(MacroError::InvalidAttrType {
-                        attr: "enum variant name".to_owned(),
-                        pat: "Yaml::String(s)".to_owned(),
-                        actual: variant_ident.clone(),
-                    })
-                }
-            };
-            let variant_value = match variant_value {
-                Yaml::String(s) => s.parse().unwrap(),
-                _ => {
-                    return Err(MacroError::InvalidAttrType {
-                        attr: "enum variant value".to_owned(),
-                        pat: "Yaml::String(s)".to_owned(),
-                        actual: variant_value.clone(),
-                    })
-                }
-            };
+            let variant_ident = assert_pattern!(
+                variant_ident;
+                Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site());
+                attr: "variant ident", st: "get_enums";
+            );
+            let variant_value = assert_pattern!(
+                variant_value;
+                Yaml::String(s) => s.parse().unwrap();
+                attr: "variant value", st: "get_enums";
+            );
             values.push((variant_ident, variant_value));
         }
 

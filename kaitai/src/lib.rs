@@ -34,7 +34,7 @@
 //! # Semantics
 //! The filepath provided to `kaitai_source` is taken relative to the current file, similarly to how
 //! modules are found. However, the filepath provided to `from_file` is taken relative to the root
-//! of the directory, like [`std::fs::File::open`].
+//! of the project, like [`std::fs::File::open`].
 #![feature(extend_one)]
 #![feature(seek_stream_len)]
 #![warn(

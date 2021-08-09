@@ -41,7 +41,7 @@ fn main() -> Result<()> {
 ## Semantics
 The filepath provided to `kaitai_source` is taken relative to the current file, similarly to how
 modules are found. However, the filepath provided to `from_file` is taken relative to the root
-of the directory, like `std::fs::File::open`.
+of the project, like `std::fs::File::open`.
 
 ## License
 

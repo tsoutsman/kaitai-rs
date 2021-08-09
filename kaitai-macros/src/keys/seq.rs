@@ -1,6 +1,6 @@
 use crate::{
     keys::{meta::get_meta, types::TypeInfo},
-    utils::{get_attribute, sc_to_ucc, MacroError, Result},
+    utils::{get_attribute, prop_err, sc_to_ucc, MacroError, Result, StackTrace},
 };
 
 use proc_macro2::{Span, TokenStream};
@@ -51,16 +51,16 @@ impl Attribute {
 }
 
 fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
-    let seq = get_attribute!(map | "seq" as Yaml::Array(a) => a)?;
+    let seq = get_attribute!(map; "seq" as Yaml::Array(a) => a; "get_seq")?;
     let mut result = Vec::new();
 
     for item in seq {
         result.push(match item {
             Yaml::Hash(h) => Attribute {
-                id: get_attribute!(h | "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))?,
-                ks_type: get_attribute!(h | "type" as Yaml::String(s) => s.clone())?,
+                id: get_attribute!(h; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()); "get_seq")?,
+                ks_type: get_attribute!(h; "type" as Yaml::String(s) => s.clone(); "get_seq")?,
             },
-            _ => return Err(MacroError::InvalidAttribute(item.clone())),
+            _ => return Err(MacroError::InvalidAttribute(item.clone(), StackTrace::from("get_seq"))),
         });
     }
 
@@ -68,7 +68,7 @@ fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
 }
 
 pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
-    let seq = get_seq(map)?;
+    let seq = prop_err!(get_seq(map); "gen_field_defs");
     let mut result = Vec::new();
 
     for attr in seq {
@@ -128,7 +128,10 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(MacroError::RequiredAttrNotFound("seq".to_owned()))
+            Err(MacroError::RequiredAttrNotFound(
+                "seq".to_owned(),
+                StackTrace::from("get_seq")
+            ))
         );
     }
 
@@ -146,7 +149,10 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(MacroError::RequiredAttrNotFound("type".to_owned()))
+            Err(MacroError::RequiredAttrNotFound(
+                "type".to_owned(),
+                StackTrace::from("get_seq")
+            ))
         );
     }
 
@@ -168,7 +174,8 @@ mod tests {
             Err(MacroError::InvalidAttrType {
                 attr: "id".to_owned(),
                 pat: "Yaml::String(s)".to_owned(),
-                actual: Yaml::Hash(yaml::Hash::new())
+                actual: Yaml::Hash(yaml::Hash::new()),
+                st: StackTrace::from("get_seq")
             })
         );
     }
