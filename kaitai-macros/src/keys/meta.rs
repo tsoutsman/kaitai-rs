@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 use anyhow::{Context, Result};
 use yaml_rust::Yaml;
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Endianness {
     Le,
     Be,
@@ -37,7 +37,7 @@ impl std::convert::TryFrom<&str> for Endianness {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct MetaSpec {
     pub id: String,
     pub endianness: Endianness,

@@ -13,7 +13,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use yaml_rust::{yaml, Yaml};
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TypeInfo<'a> {
     /// The hash map containing the necessary data to generate the type.
     pub map: &'a yaml::Hash,

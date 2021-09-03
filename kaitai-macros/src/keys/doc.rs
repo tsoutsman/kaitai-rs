@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use yaml_rust::{yaml, Yaml};
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct DocSpec {
     /// A description of a user-defined type. It is used as documentation for the Rust struct
     /// representing the type.

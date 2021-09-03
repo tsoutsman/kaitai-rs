@@ -19,7 +19,7 @@ quote = "1"
 proc-macro2 = "1"
 syn = { version = "1", features = ["extra-traits", "full"] }
 thiserror ="1.0"
-anyhow = "*"
+anyhow = "1.0"
 
 [badges]
 maintenance = { status = "experimental" }

@@ -1,4 +1,5 @@
 //! Please see the main [kaitai](https://www.crates.io/crates/kaitai) crate.
+#![feature(proc_macro_span, register_tool)]
 #![deny(
     non_ascii_idents,
     missing_docs,
@@ -9,7 +10,6 @@
     missing_copy_implementations,
     rustdoc::broken_intra_doc_links
 )]
-#![feature(proc_macro_span, register_tool)]
 #![register_tool(tarpaulin)]
 
 mod error;
@@ -38,7 +38,7 @@ pub fn kaitai_source(
         syn::Item::Struct(s) => s,
         _ => {
             // TODO
-            panic!("attribute not on struct");
+            panic!("kaitai_source macro can only be applied to a struct");
         }
     };
 
@@ -46,7 +46,7 @@ pub fn kaitai_source(
         syn::Fields::Unit => {}
         _ => {
             // TODO
-            panic!("struct has fields");
+            panic!("kaitai_source macro can only be applied to a fieldless struct");
         }
     }
 
@@ -55,9 +55,10 @@ pub fn kaitai_source(
     source_file_path.pop();
     let file_path = source_file_path.join(Path::new(&ks_source_path.value()));
 
-    let file_contents = std::fs::read_to_string(file_path).expect("error reading file: ");
+    let file_contents = std::fs::read_to_string(file_path).expect("error reading ksy file: ");
+    // TODO do we need to check that length == 1?
     let structure =
-        &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing file: ")[0];
+        &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing ksy file: ")[0];
 
     let result = match structure {
         Yaml::Hash(map) => types::gen_type(&types::TypeInfo {
@@ -67,7 +68,7 @@ pub fn kaitai_source(
             visibility: struct_item.vis,
             inherited_meta: None,
         }),
-        _ => panic!("file does not have the correct structure"),
+        _ => panic!("ksy file does not have the correct structure"),
     };
 
     match result {

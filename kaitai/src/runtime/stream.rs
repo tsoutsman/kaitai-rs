@@ -35,10 +35,37 @@ macro_rules! generate_read_functions {
     };
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum TerminatorFlags {
-    Include,
-    Consume,
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+pub struct TerminatorFlags {
+    pub include: bool,
+    pub consume: bool,
+}
+
+impl TerminatorFlags {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn include() -> Self {
+        Self {
+            include: true,
+            consume: false,
+        }
+    }
+
+    pub fn consume() -> Self {
+        Self {
+            include: false,
+            consume: true,
+        }
+    }
+
+    pub fn all() -> Self {
+        Self {
+            include: true,
+            consume: true,
+        }
+    }
 }
 
 /// Trait that adds useful functions to all structs that implement Read and Seek.
@@ -101,7 +128,7 @@ pub trait KaitaiStream: Read + Seek {
     /// The Include flag determines whether the terminator is included in the return value. If the
     /// Consumed flag is set, the stream points to the character after the terminator, otherwise
     /// it points to the terminator.
-    fn read_bytes_term(&mut self, term: char, flags: &[TerminatorFlags]) -> Result<Vec<u8>> {
+    fn read_bytes_term(&mut self, term: char, flags: TerminatorFlags) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();
 
         loop {
@@ -113,11 +140,11 @@ pub trait KaitaiStream: Read + Seek {
             }
 
             if temp_buffer[0] as char == term {
-                if flags.contains(&TerminatorFlags::Include) {
+                if flags.include {
                     // buffer.extend_from_slice(&temp_buffer);
                     // NOTE: NIGHTLY FEATURE
                     buffer.extend_one(temp_buffer[0]);
-                } else if !flags.contains(&TerminatorFlags::Consume) {
+                } else if !flags.consume {
                     self.seek(SeekFrom::Current(-1))?;
                 }
                 return Ok(buffer);
@@ -231,24 +258,27 @@ mod tests {
 
         assert_eq!(
             vec![0, 1, 2],
-            buf.read_bytes_term('\u{3}', &[TerminatorFlags::Consume])
+            buf.read_bytes_term('\u{3}', TerminatorFlags::consume())
                 .unwrap()
         );
-        assert_eq!(vec![4, 5], buf.read_bytes_term('\u{6}', &[]).unwrap());
+        assert_eq!(
+            vec![4, 5],
+            buf.read_bytes_term('\u{6}', TerminatorFlags::new())
+                .unwrap()
+        );
         assert_eq!(
             vec![6, 7],
-            buf.read_bytes_term(
-                '\u{7}',
-                &[TerminatorFlags::Include, TerminatorFlags::Consume]
-            )
-            .unwrap()
+            buf.read_bytes_term('\u{7}', TerminatorFlags::all())
+                .unwrap()
         );
         assert_eq!(
             vec![8],
-            buf.read_bytes_term('\u{8}', &[TerminatorFlags::Include])
+            buf.read_bytes_term('\u{8}', TerminatorFlags::include())
                 .unwrap()
         );
-        assert!(buf.read_bytes_term('\u{15}', &[]).is_err());
+        assert!(buf
+            .read_bytes_term('\u{15}', TerminatorFlags::new())
+            .is_err());
     }
 
     #[test]

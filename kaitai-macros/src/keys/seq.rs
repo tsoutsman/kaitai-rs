@@ -10,22 +10,23 @@ use quote::{quote, ToTokens};
 use syn::Ident;
 use yaml_rust::{yaml, Yaml};
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Attribute {
     pub id: Ident,
     pub ks_type: String,
 }
 
+#[derive(Clone, Debug)]
 pub enum TypeDef {
-    Inbuilt(TokenStream),
-    Custom(TokenStream),
+    BuiltIn(TokenStream),
+    UserDefined(TokenStream),
 }
 
 impl ToTokens for TypeDef {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self {
-            TypeDef::Inbuilt(t) => tokens.extend(std::iter::once(t.clone())),
-            TypeDef::Custom(t) => tokens.extend(std::iter::once(t.clone())),
+            TypeDef::BuiltIn(t) => tokens.extend(std::iter::once(t.clone())),
+            TypeDef::UserDefined(t) => tokens.extend(std::iter::once(t.clone())),
         };
     }
 }
@@ -33,19 +34,19 @@ impl ToTokens for TypeDef {
 impl Attribute {
     pub fn rust_type(&self) -> TypeDef {
         match &self.ks_type[..] {
-            "u1" => TypeDef::Inbuilt(quote! { u8 }),
-            "u2" => TypeDef::Inbuilt(quote! { u16 }),
-            "u4" => TypeDef::Inbuilt(quote! { u32 }),
-            "u8" => TypeDef::Inbuilt(quote! { u64 }),
-            "s1" => TypeDef::Inbuilt(quote! { i8 }),
-            "s2" => TypeDef::Inbuilt(quote! { i16 }),
-            "s4" => TypeDef::Inbuilt(quote! { i32 }),
-            "s8" => TypeDef::Inbuilt(quote! { i64 }),
-            "f4" => TypeDef::Inbuilt(quote! { f32 }),
-            "f8" => TypeDef::Inbuilt(quote! { f64 }),
+            "u1" => TypeDef::BuiltIn(quote! { u8 }),
+            "u2" => TypeDef::BuiltIn(quote! { u16 }),
+            "u4" => TypeDef::BuiltIn(quote! { u32 }),
+            "u8" => TypeDef::BuiltIn(quote! { u64 }),
+            "s1" => TypeDef::BuiltIn(quote! { i8 }),
+            "s2" => TypeDef::BuiltIn(quote! { i16 }),
+            "s4" => TypeDef::BuiltIn(quote! { i32 }),
+            "s8" => TypeDef::BuiltIn(quote! { i64 }),
+            "f4" => TypeDef::BuiltIn(quote! { f32 }),
+            "f8" => TypeDef::BuiltIn(quote! { f64 }),
             // The type is a user-defined type, meaning a struct has been generated somewhere with
             // the name in ucc.
-            &_ => TypeDef::Custom(
+            &_ => TypeDef::UserDefined(
                 Ident::new(&sc_to_ucc(&self.ks_type), Span::call_site()).to_token_stream(),
             ),
         }
@@ -98,19 +99,24 @@ pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
         func_name.push_str(&attr.id.to_string());
         func_name.push_str(": ");
         match attr.rust_type() {
-            TypeDef::Inbuilt(_) => {
+            TypeDef::BuiltIn(_) => {
+                // Generates something like: "buf.read_s2le()?"
                 func_name.push_str("buf.read_");
                 func_name.push_str(&attr.ks_type);
                 func_name.push_str(&meta.endianness.to_string());
                 func_name.push_str("()?");
             }
-            TypeDef::Custom(_) => {
+            TypeDef::UserDefined(_) => {
+                // Generates something like: "CustomType::new(buf)?"
+                // We are banking on the fact that this type is defined as a subtype
+                // in the ksy file and that its name will be the same.
                 func_name.push_str(&sc_to_ucc(&attr.ks_type));
                 func_name.push_str("::new(buf)?");
             }
         }
 
-        // TODO get rid of unwrap
+        // TODO handle unwrap. I think this would only fail if attr.ks_type is something very weird
+        // and is not lexically valid.
         result.push(func_name.parse().unwrap());
     }
 
