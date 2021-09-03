@@ -1,4 +1,5 @@
 use crate::{
+    enums::gen_enum_defs,
     error::Error,
     keys::{
         doc::gen_doc_comment,
@@ -65,7 +66,7 @@ pub fn get_types(info: &TypeInfo<'_>) -> Result<Vec<(Ident, yaml::Hash)>> {
     Ok(result)
 }
 
-pub fn gen_type_defs(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
+fn gen_type_defs(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
     let types = get_types(info).context("get_type_defs")?;
     let mut result = Vec::new();
 
@@ -102,6 +103,8 @@ pub fn gen_type(info: &TypeInfo<'_>) -> Result<TokenStream> {
     })
     .context("gen_type")?;
 
+    let enum_defs = gen_enum_defs(map).context("gen_type")?;
+
     let doc_comment = gen_doc_comment(map).context("gen_type")?;
 
     let attrs: Vec<proc_macro2::TokenStream> =
@@ -117,6 +120,8 @@ pub fn gen_type(info: &TypeInfo<'_>) -> Result<TokenStream> {
 
     let result = quote! {
         #(#type_defs)*
+
+        #(#enum_defs)*
 
         #doc_comment
         #(#attrs)*

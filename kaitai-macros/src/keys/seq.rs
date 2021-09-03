@@ -91,7 +91,7 @@ pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
 pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
     let meta = get_meta(info)?;
     let seq = get_seq(info.map)?;
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(seq.len());
 
     for attr in seq {
         let mut func_name = String::new();
