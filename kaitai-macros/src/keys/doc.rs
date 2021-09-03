@@ -1,5 +1,6 @@
-use crate::utils::{get_attribute, prop_err, MacroError, Result};
+use crate::util::get_attr;
 
+use anyhow::{Context, Result};
 use proc_macro2::TokenStream;
 use quote::quote;
 use yaml_rust::{yaml, Yaml};
@@ -15,23 +16,13 @@ pub struct DocSpec {
 }
 
 fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
-    let description = match get_attribute!(map; "doc" as Yaml::String(s) => s; "get_doc") {
-        Ok(d) => Some(d.clone()),
-        Err(e) => match e {
-            MacroError::InvalidAttrType { .. } => return Err(e),
-            MacroError::RequiredAttrNotFound(..) => None,
-            _ => unreachable!(),
-        },
-    };
+    let description = get_attr!(map; "doc" as Yaml::String(s) => s)
+        .context("get_doc")?
+        .cloned();
 
-    let reference = match get_attribute!(map; "doc-ref" as Yaml::String(s) => s; "get_doc") {
-        Ok(d) => Some(d.clone()),
-        Err(e) => match e {
-            MacroError::InvalidAttrType { .. } => return Err(e),
-            MacroError::RequiredAttrNotFound(..) => None,
-            _ => unreachable!(),
-        },
-    };
+    let reference = get_attr!(map; "doc-ref" as Yaml::String(s) => s)
+        .context("get_doc")?
+        .cloned();
 
     Ok(DocSpec {
         description,
@@ -40,7 +31,7 @@ fn get_doc(map: &yaml::Hash) -> Result<DocSpec> {
 }
 
 pub fn gen_doc_comment(map: &yaml::Hash) -> Result<TokenStream> {
-    let doc = prop_err!(get_doc(map); "gen_doc_comment");
+    let doc = get_doc(map).context("gen_doc_comment")?;
 
     if doc.description.is_none() && doc.reference.is_none() {
         return Ok(TokenStream::new());

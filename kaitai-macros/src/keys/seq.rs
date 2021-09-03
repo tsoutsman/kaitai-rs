@@ -1,8 +1,10 @@
 use crate::{
+    error::Error,
     keys::{meta::get_meta, types::TypeInfo},
-    utils::{get_attribute, prop_err, sc_to_ucc, MacroError, Result, StackTrace},
+    util::{get_required_attr, sc_to_ucc},
 };
 
+use anyhow::{Context, Result};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::Ident;
@@ -51,16 +53,21 @@ impl Attribute {
 }
 
 fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
-    let seq = get_attribute!(map; "seq" as Yaml::Array(a) => a; "get_seq")?;
+    let seq = get_required_attr!(map; "seq" as Yaml::Array(a) => a).context("get_seq")?;
     let mut result = Vec::new();
 
     for item in seq {
         result.push(match item {
             Yaml::Hash(h) => Attribute {
-                id: get_attribute!(h; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()); "get_seq")?,
-                ks_type: get_attribute!(h; "type" as Yaml::String(s) => s.clone(); "get_seq")?,
+                id: get_required_attr!(h; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
+                    .context("get_seq")?,
+                ks_type: get_required_attr!(h; "type" as Yaml::String(s) => s.clone()).context("get_seq")?,
             },
-            _ => return Err(MacroError::InvalidAttribute(item.clone(), StackTrace::from("get_seq"))),
+            _ => {
+                return Err(Error::InvalidAttribute(
+                    item.clone(),
+                )).context("get_seq")
+            }
         });
     }
 
@@ -68,7 +75,7 @@ fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
 }
 
 pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
-    let seq = prop_err!(get_seq(map); "gen_field_defs");
+    let seq = get_seq(map).context("gen_field_defs")?;
     let mut result = Vec::new();
 
     for attr in seq {
@@ -127,11 +134,8 @@ mod tests {
         let result = get_seq(&input);
 
         assert_eq!(
-            result,
-            Err(MacroError::RequiredAttrNotFound(
-                "seq".to_owned(),
-                StackTrace::from("get_seq")
-            ))
+            result.unwrap_err().downcast_ref::<Error>().unwrap(),
+            &Error::RequiredAttrNotFound("seq".to_owned())
         );
     }
 
@@ -148,11 +152,8 @@ mod tests {
         let result = get_seq(&input);
 
         assert_eq!(
-            result,
-            Err(MacroError::RequiredAttrNotFound(
-                "type".to_owned(),
-                StackTrace::from("get_seq")
-            ))
+            result.unwrap_err().downcast_ref::<Error>().unwrap(),
+            &Error::RequiredAttrNotFound("type".to_owned())
         );
     }
 
@@ -170,13 +171,12 @@ mod tests {
         let result = get_seq(&input);
 
         assert_eq!(
-            result,
-            Err(MacroError::InvalidAttrType {
+            result.unwrap_err().downcast_ref::<Error>().unwrap(),
+            &Error::InvalidAttrType {
                 attr: "id".to_owned(),
                 pat: "Yaml::String(s)".to_owned(),
                 actual: Yaml::Hash(yaml::Hash::new()),
-                st: StackTrace::from("get_seq")
-            })
+            }
         );
     }
 
@@ -194,14 +194,14 @@ mod tests {
         let result = get_seq(&input);
 
         assert_eq!(
-            result,
-            Ok(vec![
+            result.unwrap(),
+            vec![
                 Attribute {
                     id: Ident::new("example_id", Span::call_site()),
                     ks_type: "example_type".to_owned()
                 };
                 2
-            ])
+            ]
         );
     }
 }

@@ -1,10 +1,12 @@
+use crate::{
+    error::Error,
+    types::TypeInfo,
+    util::{get_attr, get_required_attr},
+};
+
 use std::convert::TryFrom;
 
-use crate::{
-    get_attribute,
-    types::TypeInfo,
-    utils::{prop_err, MacroError, Result, StackTrace},
-};
+use anyhow::{Context, Result};
 use yaml_rust::Yaml;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -24,15 +26,13 @@ impl std::fmt::Display for Endianness {
 }
 
 impl std::convert::TryFrom<&str> for Endianness {
-    type Error = MacroError;
+    type Error = Error;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         match value {
             "le" => Ok(Endianness::Le),
             "be" => Ok(Endianness::Be),
-            _ => Err(MacroError::InvalidEndianness(StackTrace::from(
-                "(try_from for Endianness)",
-            ))),
+            _ => Err(Error::InvalidEndianness),
         }
     }
 }
@@ -45,28 +45,29 @@ pub struct MetaSpec {
 
 pub fn get_meta(info: &TypeInfo) -> Result<MetaSpec> {
     let map = info.map;
-    let meta = match get_attribute!(map; "meta" as Yaml::Hash(h) => h; "get_meta") {
+    let meta = match get_attr!(map; "meta" as Yaml::Hash(h) => h).context("get_meta")? {
         // The type has a `MetaSpec`. It is assumed that the provided `MetaSpec` overwrites the
         // inherited one.
-        Ok(m) => m,
-        Err(MacroError::RequiredAttrNotFound(a, st)) => {
+        Some(m) => m,
+        None => {
             if let Some(m) = info.inherited_meta.clone() {
                 // The type doesn't have a `MetaSpec` but it inherits one.
                 return Ok(m);
             } else {
                 // The type doesn't have a `MetaSpec` and does not inherit any.
-                // TODO surely there is a better way to not have to reconstruct the error.
-                let e = MacroError::RequiredAttrNotFound(a, st);
-                return Err(e.with("get_meta"));
+                let e = Error::RequiredAttrNotFound("meta".to_owned());
+                return Err(e).context("get_meta");
             }
         }
-        Err(e) => return Err(e),
     };
 
-    let id = get_attribute!(meta; "id" as Yaml::String(s) => s.clone(); "get_meta")?;
-    let endianness: Endianness = prop_err!(Endianness::try_from(
-        get_attribute!(meta; "endian" as Yaml::String(s) => s; "get_meta")?.as_ref(),
-    ); "get_meta");
+    let id = get_required_attr!(meta; "id" as Yaml::String(s) => s.clone()).context("get_meta")?;
+    let endianness = Endianness::try_from(
+        get_required_attr!(meta; "endian" as Yaml::String(s) => s)
+            .context("get_meta")?
+            .as_ref(),
+    )
+    .context("get_meta")?;
 
     Ok(MetaSpec { id, endianness })
 }

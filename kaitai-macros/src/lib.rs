@@ -1,11 +1,11 @@
 #![feature(proc_macro_span, register_tool)]
 #![register_tool(tarpaulin)]
 
+mod error;
 mod keys;
-mod utils;
+mod util;
 
 use keys::*;
-use utils::{get_attribute, Result};
 
 use std::path::Path;
 
@@ -58,5 +58,9 @@ pub fn kaitai_source(
         }),
         _ => panic!("file does not have the correct structure"),
     };
-    result.unwrap().into()
+
+    match result {
+        Ok(t) => t.into(),
+        Err(e) => panic!("{:?}", e),
+    }
 }
