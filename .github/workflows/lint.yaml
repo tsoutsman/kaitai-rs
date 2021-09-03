@@ -2,15 +2,16 @@ name: Lints
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   clippy:
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -25,23 +26,25 @@ jobs:
       - name: Annotate clippy
         uses: actions-rs/clippy@master
         with:
-          args: --all-features --all-targets
+          args: --all-targets --tests --all-features --workspace
       - name: Run clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --all-targets --tests --all-features --workspace -- -D warnings
   rustfmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install Rust
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
           components: rustfmt
-      - name: Format
+      - name: Check formatting
         uses: actions-rs/cargo@v1
         with:
           command: fmt
