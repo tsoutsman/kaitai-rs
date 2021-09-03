@@ -43,7 +43,7 @@ pub struct MetaSpec {
     pub endianness: Endianness,
 }
 
-pub fn get_meta(info: &TypeInfo) -> Result<MetaSpec> {
+pub fn get_meta(info: &TypeInfo<'_>) -> Result<MetaSpec> {
     let map = info.map;
     let meta = match get_attr!(map; "meta" as Yaml::Hash(h) => h).context("get_meta")? {
         // The type has a `MetaSpec`. It is assumed that the provided `MetaSpec` overwrites the

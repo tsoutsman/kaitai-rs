@@ -1,3 +1,14 @@
+//! Please see the main [kaitai](https://www.crates.io/crates/kaitai) crate.
+#![deny(
+    non_ascii_idents,
+    missing_docs,
+    rust_2018_idioms,
+    rust_2021_compatibility,
+    future_incompatible,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    rustdoc::broken_intra_doc_links
+)]
 #![feature(proc_macro_span, register_tool)]
 #![register_tool(tarpaulin)]
 

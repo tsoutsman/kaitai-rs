@@ -37,7 +37,8 @@
 //! of the project, like [`std::fs::File::open`].
 #![feature(extend_one)]
 #![feature(seek_stream_len)]
-#![warn(
+#![deny(
+    non_ascii_idents,
     missing_docs,
     rust_2018_idioms,
     rust_2021_compatibility,
@@ -46,7 +47,6 @@
     missing_copy_implementations,
     rustdoc::broken_intra_doc_links
 )]
-#![allow(dead_code)]
 
 mod errors;
 

@@ -87,7 +87,7 @@ pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
     Ok(result)
 }
 
-pub fn gen_field_assignments(info: &TypeInfo) -> Result<Vec<TokenStream>> {
+pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
     let meta = get_meta(info)?;
     let seq = get_seq(info.map)?;
     let mut result = Vec::new();
