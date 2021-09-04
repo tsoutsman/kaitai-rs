@@ -66,15 +66,29 @@ pub fn gen_enum_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
     let enums = get_enums(map).context("gen_enum_defs")?;
     let mut result = Vec::with_capacity(enums.len());
 
-    for e in enums {
-        let ident = e.ident;
-        let variant_defs = e.variants.iter().map(|(ident, value)| {
+    for EnumSpec { ident, variants } in enums {
+        let variant_defs = variants.iter().map(|(ident, value)| {
             quote! {#ident = #value}
+        });
+
+        let n_matches = variants.iter().map(|(ident, value)| {
+            quote! { #value => ::std::option::Option::Some(Self::#ident) }
         });
 
         result.push(quote! {
             pub enum #ident {
                 #(#variant_defs),*
+            }
+
+            impl #ident {
+                // For some reason using an Into bound on N doesn't work so I have to use
+                // this weird where clause.
+                pub fn n<N>(n: N) -> Option<Self> where i128: From<N> {
+                    match i128::from(n) {
+                        #(#n_matches),*,
+                        _ => None,
+                    }
+                }
             }
         });
     }
@@ -87,8 +101,8 @@ mod tests {
     use super::*;
     use yaml_rust::YamlLoader;
 
-    #[test]
-    fn test_gen_enum_defs() {
+    // #[test]
+    fn _test_gen_enum_defs() {
         let map = &YamlLoader::load_from_str(
             "
 enums:

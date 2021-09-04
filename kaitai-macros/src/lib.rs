@@ -23,7 +23,7 @@ use std::path::Path;
 use syn::parse_macro_input;
 use yaml_rust::Yaml;
 
-// Since it gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
+// Since this macro gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
 /// See crate-level documentation for information on how to use this macro.
 #[tarpaulin::skip]
 #[proc_macro_attribute]
@@ -61,7 +61,7 @@ pub fn kaitai_source(
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing ksy file: ")[0];
 
     let result = match structure {
-        Yaml::Hash(map) => types::gen_type(&types::TypeInfo {
+        Yaml::Hash(map) => types::gen_type_def(&types::TypeInfo {
             map,
             ident: struct_item.ident,
             attrs: struct_item.attrs,

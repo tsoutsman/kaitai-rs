@@ -1,6 +1,6 @@
 // The contents of this file are **heavily** inspired by https://github.com/kaitai-io/kaitai_struct_rust_runtime.
 // Although this file is not a copy-paste, without their work this would have been much harder.
-use crate::{KaitaiError, Result};
+use crate::error::{Error, Result};
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -21,12 +21,12 @@ macro_rules! generate_read_functions {
         ::paste::paste! {
         $(
          #[doc = concat!(" Reads in a little endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
-        fn [<read_ $letter $size le>](&mut self) -> $crate::Result<$rust_type> {
+        fn [<read_ $letter $size le>](&mut self) -> $crate::error::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::LittleEndian>().map_err(|e| e.into())
         }
         #[doc = concat!(" Reads in a big endian ", stringify!($rust_type), " (KS: ", stringify!($letter), stringify!($size), ")")]
-        fn [<read_ $letter $size be>](&mut self) -> $crate::Result<$rust_type> {
+        fn [<read_ $letter $size be>](&mut self) -> $crate::error::Result<$rust_type> {
             use ::byteorder::ReadBytesExt;
             self.[<read_ $rust_type>]::<::byteorder::BigEndian>().map_err(|e| e.into())
         }
@@ -136,7 +136,7 @@ pub trait KaitaiStream: Read + Seek {
             let bytes_read = self.read(&mut temp_buffer)?;
 
             if bytes_read == 0 {
-                return Err(KaitaiError::EofBeforeTerminator(term));
+                return Err(Error::EofBeforeTerminator(term));
             }
 
             if temp_buffer[0] as char == term {
@@ -164,7 +164,7 @@ pub trait KaitaiStream: Read + Seek {
                 if buf == expected {
                     Ok(())
                 } else {
-                    Err(KaitaiError::UnexpectedContents {
+                    Err(Error::UnexpectedContents {
                         actual: buf,
                         expected: Vec::from(expected),
                     })

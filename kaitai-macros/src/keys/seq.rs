@@ -1,7 +1,7 @@
 use crate::{
     error::Error,
     keys::{meta::get_meta, types::TypeInfo},
-    util::{get_required_attr, sc_to_ucc},
+    util::{get_attr, get_required_attr, sc_to_ucc},
 };
 
 use anyhow::{Context, Result};
@@ -14,12 +14,14 @@ use yaml_rust::{yaml, Yaml};
 pub struct Attribute {
     pub id: Ident,
     pub ks_type: String,
+    pub enum_ident: Option<String>,
 }
 
 #[derive(Clone, Debug)]
 pub enum TypeDef {
     BuiltIn(TokenStream),
     UserDefined(TokenStream),
+    Enum(TokenStream),
 }
 
 impl ToTokens for TypeDef {
@@ -27,12 +29,17 @@ impl ToTokens for TypeDef {
         match &self {
             TypeDef::BuiltIn(t) => tokens.extend(std::iter::once(t.clone())),
             TypeDef::UserDefined(t) => tokens.extend(std::iter::once(t.clone())),
+            TypeDef::Enum(t) => tokens.extend(std::iter::once(t.clone())),
         };
     }
 }
 
 impl Attribute {
     pub fn rust_type(&self) -> TypeDef {
+        if let Some(i) = &self.enum_ident {
+            return TypeDef::Enum(Ident::new(&sc_to_ucc(i), Span::call_site()).to_token_stream());
+        }
+
         match &self.ks_type[..] {
             "u1" => TypeDef::BuiltIn(quote! { u8 }),
             "u2" => TypeDef::BuiltIn(quote! { u16 }),
@@ -63,6 +70,7 @@ fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
                 id: get_required_attr!(h; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
                     .context("get_seq")?,
                 ks_type: get_required_attr!(h; "type" as Yaml::String(s) => s.clone()).context("get_seq")?,
+                enum_ident: get_attr!(h; "enum" as Yaml::String(s) => s.clone()).context("get_seq")?,
             },
             _ => {
                 return Err(Error::InvalidAttribute(
@@ -100,7 +108,6 @@ pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
         func_name.push_str(": ");
         match attr.rust_type() {
             TypeDef::BuiltIn(_) => {
-                // Generates something like: "buf.read_s2le()?"
                 func_name.push_str("buf.read_");
                 func_name.push_str(&attr.ks_type);
                 func_name.push_str(&meta.endianness.to_string());
@@ -112,6 +119,16 @@ pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
                 // in the ksy file and that its name will be the same.
                 func_name.push_str(&sc_to_ucc(&attr.ks_type));
                 func_name.push_str("::new(buf)?");
+            }
+            TypeDef::Enum(_) => {
+                // TODO remove unwrap
+                func_name.push_str(&sc_to_ucc(&attr.enum_ident.unwrap()));
+                func_name.push_str("::n(");
+                func_name.push_str("buf.read_");
+                func_name.push_str(&attr.ks_type);
+                func_name.push_str(&meta.endianness.to_string());
+                func_name.push_str("()?");
+                func_name.push_str(").ok_or(::kaitai::error::Error::NoEnumMatch)?");
             }
         }
 
@@ -126,6 +143,8 @@ pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::assert_pattern;
+    use yaml_rust::YamlLoader;
 
     macro_rules! ys {
         ($lit:literal) => {
@@ -204,10 +223,28 @@ mod tests {
             vec![
                 Attribute {
                     id: Ident::new("example_id", Span::call_site()),
-                    ks_type: "example_type".to_owned()
+                    ks_type: "example_type".to_owned(),
+                    enum_ident: None
                 };
                 2
             ]
         );
+    }
+
+    #[test]
+    fn attribute_enum() {
+        let map = &YamlLoader::load_from_str(
+            "
+seq:
+  - id: protocol
+    enum: ip_protocol
+  - id: another_thing
+    enum: enum_id\0",
+        )
+        .unwrap()[0];
+        let _map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
+
+        // let result = gen_field_assignments(map).unwrap();
+        // eprintln!("RESULT: {:?}", result);
     }
 }

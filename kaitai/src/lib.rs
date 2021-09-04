@@ -18,7 +18,7 @@
 //! ```
 //! The rust code to read a `basic_be` buffer would look something like this:
 //! ```
-//! # use kaitai::{Result, kaitai_source, runtime::KaitaiStruct};
+//! # use kaitai::{kaitai_source, runtime::KaitaiStruct, error::Result};
 //! #[kaitai_source("../tests/formats/basic_be.ksy")]
 //! struct BasicBigEndian;
 //!
@@ -47,13 +47,11 @@
     rustdoc::broken_intra_doc_links
 )]
 
-mod errors;
+pub mod error;
 
 //
 // Public exports
 //
-
-pub use errors::{KaitaiError, Result};
 
 #[doc(inline)]
 pub use kaitai_macros::kaitai_source;
