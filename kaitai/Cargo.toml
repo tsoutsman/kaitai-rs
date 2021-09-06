@@ -23,5 +23,5 @@ thiserror = "1"
 kaitai-macros = { path = "../kaitai-macros", version = "0" }
 
 [badges]
-maintenance = { status = "experimental" }
+# maintenance = { status = "experimental" }
 github = { repository = "TypicalFork/kaitai-rs", workflow = "CI" }
