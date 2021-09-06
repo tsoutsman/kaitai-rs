@@ -13,24 +13,16 @@ use yaml_rust::{yaml, Yaml};
 use super::doc::DocSpec;
 use super::meta::MetaSpec;
 
-/// Describes the rust type of a Kaitai Struct attribute.
-#[derive(Clone, Debug)]
-pub enum TypeDef {
-    /// The type is a builtin (e.g. [`u8`], [`i32`], [`f64`]).
-    BuiltIn(TokenStream),
-    /// The type is a custom struct (i.e. defined in `types` in the KS file).
-    Struct(TokenStream),
-    /// The type is an enum (i.e. defined in `enums` in the KS file).
-    Enum(TokenStream),
-}
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Attributes(Vec<Attribute>);
 
-impl ToTokens for TypeDef {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        match &self {
-            TypeDef::BuiltIn(t) => tokens.extend(t.clone()),
-            TypeDef::Struct(t) => tokens.extend(t.clone()),
-            TypeDef::Enum(t) => tokens.extend(t.clone()),
-        };
+impl Attributes {
+    pub fn field_definitions(&self) -> Vec<TokenStream> {
+        self.0.iter().map(|a| a.definition()).collect()
+    }
+
+    pub fn field_assignments(&self, meta: &MetaSpec) -> Vec<TokenStream> {
+        self.0.iter().map(|a| a.assignment(meta)).collect()
     }
 }
 
@@ -114,9 +106,13 @@ impl Attribute {
     ///
     /// Note that the name of the enum is converted into upper camel case.
     pub fn definition(&self) -> TokenStream {
+        let doc = &self.doc;
         let id = &self.id;
         let ty = self.rust_type();
-        quote! { pub #id: #ty }
+        quote! {
+            #doc
+            pub #id: #ty
+        }
     }
 
     fn endianness(&self, meta: &MetaSpec) -> String {
@@ -198,36 +194,45 @@ impl Attribute {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct Attributes(Vec<Attribute>);
+/// Describes the rust type of a Kaitai Struct attribute.
+#[derive(Clone, Debug)]
+pub enum TypeDef {
+    /// The type is a builtin (e.g. [`u8`], [`i32`], [`f64`]).
+    BuiltIn(TokenStream),
+    /// The type is a custom struct (i.e. defined in `types` in the KS file).
+    Struct(TokenStream),
+    /// The type is an enum (i.e. defined in `enums` in the KS file).
+    Enum(TokenStream),
+}
 
-impl Attributes {
-    pub fn field_definitions(&self) -> Vec<TokenStream> {
-        self.0.iter().map(|a| a.definition()).collect()
-    }
-
-    pub fn field_assignments(&self, meta: &MetaSpec) -> Vec<TokenStream> {
-        self.0.iter().map(|a| a.assignment(meta)).collect()
+impl ToTokens for TypeDef {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match &self {
+            TypeDef::BuiltIn(t) => tokens.extend(t.clone()),
+            TypeDef::Struct(t) => tokens.extend(t.clone()),
+            TypeDef::Enum(t) => tokens.extend(t.clone()),
+        };
     }
 }
 
 pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
-    let seq = get_required_attr!(map; "seq" as Yaml::Array(a) => a).context("get_seq")?;
+    let seq = get_required_attr!(map; "seq" as Yaml::Array(a) => a)
+        .context("seq: seq is not an array")?;
     let mut result = Vec::new();
 
     for item in seq {
         result.push(match item {
             Yaml::Hash(m) => Attribute {
                 id: get_required_attr!(m; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
-                    .context("get_seq")?,
-                ks_type: get_required_attr!(m; "type" as Yaml::String(s) => s.clone()).context("get_seq")?,
-                enum_ident: get_attr!(m; "enum" as Yaml::String(s) => s.clone()).context("get_seq")?,
-                doc: doc(m).context("get_seq")?,
+                    .context("seq: id not found or it is not a string")?,
+                ks_type: get_required_attr!(m; "type" as Yaml::String(s) => s.clone()).context("seq: type is not found or it is not a string")?,
+                enum_ident: get_attr!(m; "enum" as Yaml::String(s) => s.clone()).context("seq: enum ident is not a string")?,
+                doc: doc(m).context("seq: error parsing doc/doc-ref")?,
             },
             _ => {
                 return Err(Error::InvalidAttribute(
                     item.clone(),
-                )).context("get_seq")
+                )).context("seq: attribute is not a hashmap")
             }
         });
     }

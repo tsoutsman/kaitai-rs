@@ -103,11 +103,12 @@ impl ToTokens for TypeSpec {
 pub fn types(data: &TypeData<'_>) -> Result<TypesSpec> {
     let map = data.map;
 
-    let types =
-        match get_attr!(map; "types" as Yaml::Hash(h) => h).context("error getting types")? {
-            Some(t) => t,
-            None => return Ok(TypesSpec(Vec::new())),
-        };
+    let types = match get_attr!(map; "types" as Yaml::Hash(h) => h)
+        .context("types: types is not a hashmap")?
+    {
+        Some(t) => t,
+        None => return Ok(TypesSpec(Vec::new())),
+    };
 
     let mut result = Vec::new();
 
@@ -116,12 +117,12 @@ pub fn types(data: &TypeData<'_>) -> Result<TypesSpec> {
             ident;
             Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site());
             attr: "type ident")
-        .context("get_types")?;
+        .context("types: type ident is not a string")?;
         let map = assert_pattern!(
             map;
             Yaml::Hash(h) => h;
             attr: "map")
-        .context("get_types")?;
+        .context("types: type is not a hashmap")?;
 
         let child_info = TypeData {
             map,
@@ -131,23 +132,23 @@ pub fn types(data: &TypeData<'_>) -> Result<TypesSpec> {
             inherited_meta: data.inherited_meta,
         };
 
-        result.push(ty(child_info).context("error generating child")?);
+        result.push(ty(child_info).context("types: error generating child")?);
     }
 
     Ok(TypesSpec(result))
 }
 
 pub fn ty(data: TypeData<'_>) -> Result<TypeSpec> {
-    let meta = meta(&data).context("error parsing meta")?;
-    let seq = seq(data.map).context("error parsing seq")?;
+    let meta = meta(&data).context("ty: error parsing meta")?;
+    let seq = seq(data.map).context("ty: error parsing seq")?;
     let types = types(&TypeData {
         map: data.map,
         inherited_meta: Some(meta),
         ..data.clone()
     })
-    .context("error parsing types")?;
-    let enums = enums(data.map).context("error parsing enums")?;
-    let doc = doc(data.map).context("error parsing doc/doc-ref")?;
+    .context("ty: error parsing types")?;
+    let enums = enums(data.map).context("ty: error parsing enums")?;
+    let doc = doc(data.map).context("ty: error parsing doc/doc-ref")?;
     let rust_info = RustTypeInfo {
         attrs: data.attrs,
         visibility: data.visibility,

@@ -41,11 +41,11 @@ impl ToTokens for DocSpec {
 
 pub fn doc(map: &yaml::Hash) -> Result<DocSpec> {
     let description = get_attr!(map; "doc" as Yaml::String(s) => s)
-        .context("get_doc")?
+        .context("doc: doc is not a string")?
         .cloned();
 
     let reference = get_attr!(map; "doc-ref" as Yaml::String(s) => s)
-        .context("get_doc")?
+        .context("doc: doc-ref is not a string")?
         .cloned();
 
     Ok(DocSpec {

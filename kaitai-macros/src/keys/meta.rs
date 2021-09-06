@@ -44,7 +44,9 @@ pub struct MetaSpec {
 
 pub fn meta(info: &TypeData<'_>) -> Result<MetaSpec> {
     let map = info.map;
-    let meta = match get_attr!(map; "meta" as Yaml::Hash(h) => h).context("get_meta")? {
+    let meta = match get_attr!(map; "meta" as Yaml::Hash(h) => h)
+        .context("meta: meta is not a hashmap")?
+    {
         // The type has a `MetaSpec`. It is assumed that the provided `MetaSpec` overwrites the
         // inherited one.
         Some(m) => m,
@@ -55,17 +57,19 @@ pub fn meta(info: &TypeData<'_>) -> Result<MetaSpec> {
             } else {
                 // The type doesn't have a `MetaSpec` and does not inherit any.
                 let e = Error::RequiredAttrNotFound("meta".to_owned());
-                return Err(e).context("get_meta");
+                return Err(e).context("meta: meta neither found nor inherited");
             }
         }
     };
 
     let endianness = Endianness::try_from(
+        // TODO this shouldn't be required if the type inherits a meta where endianness is already
+        // defined.
         get_required_attr!(meta; "endian" as Yaml::String(s) => s)
-            .context("get_meta")?
+            .context("meta: endianness not found or it is not a string")?
             .as_ref(),
     )
-    .context("get_meta")?;
+    .context("meta: endianness is invalid, can only be \"le\" or \"be\"")?;
 
     Ok(MetaSpec { endianness })
 }

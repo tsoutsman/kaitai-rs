@@ -61,7 +61,9 @@ impl ToTokens for EnumSpec {
 
 // TODO rewrite
 pub fn enums(map: &yaml::Hash) -> Result<EnumsSpec> {
-    let enums = match get_attr!(map; "enums" as Yaml::Hash(m) => m).context("get_enums")? {
+    let enums = match get_attr!(map; "enums" as Yaml::Hash(m) => m)
+        .context("enums: enums is not a hashmap")?
+    {
         Some(e) => e,
         None => return Ok(EnumsSpec(Vec::new())),
     };
@@ -74,14 +76,14 @@ pub fn enums(map: &yaml::Hash) -> Result<EnumsSpec> {
             Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site());
             attr: "enum ident";
         )
-        .context("get_enums")?;
+        .context("enums: enum ident is not a string")?;
 
         let variants_yaml = assert_pattern!(
             variants;
             Yaml::Hash(m) => m;
             attr: "enum variants";
         )
-        .context("get_enums")?;
+        .context("enums: enum variants is not a hashmap")?;
 
         let mut variants = Vec::with_capacity(variants_yaml.len());
 
@@ -89,17 +91,17 @@ pub fn enums(map: &yaml::Hash) -> Result<EnumsSpec> {
             let variant_ident = assert_pattern!(
                 variant_ident;
                 Yaml::String(s) => Ident::new(&sc_to_ucc(s), Span::call_site());
-                attr: "variant ident";
+                attr: "enum variant ident";
             )
-            .context("get_enums")?;
+            .context("enums: enum variant ident is not a string")?;
             let variant_value = assert_pattern!(
                 variant_value;
                 // TODO handle this unwrap
                 // TODO can KS enums be negative?
                 Yaml::Integer(i) => usize::try_from(*i).unwrap();
-                attr: "variant value";
+                attr: "enum variant value";
             )
-            .context("get_enums")?;
+            .context("enums: enum variant value is not an integer")?;
             variants.push((variant_ident, variant_value));
         }
 
