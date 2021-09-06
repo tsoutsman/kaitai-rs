@@ -19,24 +19,30 @@ pub struct Attribute {
     pub enum_ident: Option<String>,
 }
 
+/// Describes the rust type of a Kaitai Struct attribute.
 #[derive(Clone, Debug)]
 pub enum TypeDef {
+    /// The type is a builtin (e.g. [`u8`], [`i32`], [`f64`]).
     BuiltIn(TokenStream),
-    UserDefined(TokenStream),
+    /// The type is a custom struct (i.e. defined in `types` in the KS file).
+    Struct(TokenStream),
+    /// The type is an enum (i.e. defined in `enums` in the KS file).
     Enum(TokenStream),
 }
 
 impl ToTokens for TypeDef {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        // I swear there must be a better way to do this.
         match &self {
             TypeDef::BuiltIn(t) => tokens.extend(std::iter::once(t.clone())),
-            TypeDef::UserDefined(t) => tokens.extend(std::iter::once(t.clone())),
+            TypeDef::Struct(t) => tokens.extend(std::iter::once(t.clone())),
             TypeDef::Enum(t) => tokens.extend(std::iter::once(t.clone())),
         };
     }
 }
 
 impl Attribute {
+    /// Returns a [`TypeDef`] representing the rust type of the `Attribute`.
     pub fn rust_type(&self) -> TypeDef {
         if let Some(i) = &self.enum_ident {
             return TypeDef::Enum(Ident::new(&sc_to_ucc(i), Span::call_site()).to_token_stream());
@@ -55,12 +61,57 @@ impl Attribute {
             "f8" => TypeDef::BuiltIn(quote! { f64 }),
             // The type is a user-defined type, meaning a struct has been generated somewhere with
             // the name in ucc.
-            &_ => TypeDef::UserDefined(
+            &_ => TypeDef::Struct(
                 Ident::new(&sc_to_ucc(&self.ks_type), Span::call_site()).to_token_stream(),
             ),
         }
     }
 
+    /// Returns a [`TokenStream`] containing the assignment of the `Attribute`.
+    ///
+    /// # Examples
+    ///
+    /// ## Built-in
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: u4
+    /// ```
+    /// results in
+    /// ```ignore
+    /// pub example_attr: u32
+    /// ```
+    ///
+    /// Note that a `u4` in KS is the equivalent of a [`u32`] in Rust.
+    ///
+    /// ## Custom type
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_type
+    /// ## where example_type is a custom type defined in the `types` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// pub example_attr: ExampleType
+    /// ```
+    ///
+    /// Note that the name of the type is converted into upper camel case.
+    ///
+    /// ## Enum
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_enum
+    /// type: u4
+    /// ## where example_enum is an enum defined in the `enums` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// pub example_attr: ExampleEnum
+    /// ```
+    ///
+    /// Note that the name of the enum is converted into upper camel case.
     pub fn definition(&self) -> TokenStream {
         let id = &self.id;
         let ty = self.rust_type();
@@ -74,6 +125,50 @@ impl Attribute {
         }
     }
 
+    /// Returns a [`TokenStream`] containing the assignment of the `Attribute`.
+    ///
+    /// # Examples
+    /// All the following examples assume the format is little endian.
+    ///
+    /// ## Built-in
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: u4
+    /// ```
+    /// results in
+    /// ```ignore
+    /// example_attr: buf.read_u4le()?
+    /// ```
+    ///
+    /// ## Custom type
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_type
+    /// ## where example_type is a custom type defined in the `types` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// example_attr: ExampleType::new(buf)?
+    /// ```
+    ///
+    /// Note that the name of the type is converted into upper camel case.
+    ///
+    /// ## Enum
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_enum
+    /// type: u4
+    /// ## where example_enum is an enum defined in the `enums` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// example_attr: ExampleEnum::n(buf.read_u4le()?).ok_or(::kaitai::error::Error::NoEnumMatch)?
+    /// ```
+    ///
+    /// Note that the name of the enum is converted into upper camel case.
     pub fn assignment(&self, meta: &MetaSpec) -> TokenStream {
         let mut assignment = format!("{}: ", self.id);
 
@@ -81,7 +176,7 @@ impl Attribute {
             TypeDef::BuiltIn(_) => {
                 assignment += &format!("buf.read_{}{}()?", self.ks_type, self.endianness(meta));
             }
-            TypeDef::UserDefined(t) => {
+            TypeDef::Struct(t) => {
                 // Generates something like: "CustomType::new(buf)?"
                 // We are banking on the fact that this type is defined as a subtype
                 // in the ksy file and that its name will be the same.
