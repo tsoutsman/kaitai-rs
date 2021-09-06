@@ -76,6 +76,7 @@ pub fn gen_enum_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
         });
 
         result.push(quote! {
+            #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
             pub enum #ident {
                 #(#variant_defs),*
             }
