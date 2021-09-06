@@ -10,6 +10,8 @@ use quote::{quote, ToTokens};
 use syn::Ident;
 use yaml_rust::{yaml, Yaml};
 
+use super::meta::MetaSpec;
+
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Attribute {
     pub id: Ident,
@@ -58,6 +60,46 @@ impl Attribute {
             ),
         }
     }
+
+    pub fn definition(&self) -> TokenStream {
+        let id = &self.id;
+        let ty = self.rust_type();
+        quote! { pub #id: #ty }
+    }
+
+    fn endianness(&self, meta: &MetaSpec) -> String {
+        match &self.ks_type[..] {
+            "u1" | "s1" => "".to_owned(),
+            _ => meta.endianness.to_string(),
+        }
+    }
+
+    pub fn assignment(&self, meta: &MetaSpec) -> TokenStream {
+        let mut assignment = format!("{}: ", self.id);
+
+        match self.rust_type() {
+            TypeDef::BuiltIn(_) => {
+                assignment += &format!("buf.read_{}{}()?", self.ks_type, self.endianness(meta));
+            }
+            TypeDef::UserDefined(t) => {
+                // Generates something like: "CustomType::new(buf)?"
+                // We are banking on the fact that this type is defined as a subtype
+                // in the ksy file and that its name will be the same.
+                assignment += &format!("{}::new(buf)?", t);
+            }
+            TypeDef::Enum(t) => {
+                assignment += &format!(
+                    "{}::n(buf.read_{}{}()?).ok_or(::kaitai::error::Error::NoEnumMatch)?",
+                    t,
+                    self.ks_type,
+                    self.endianness(meta)
+                );
+            }
+        }
+
+        // TODO handle unwrap
+        assignment.parse().unwrap()
+    }
 }
 
 fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
@@ -84,60 +126,19 @@ fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
 }
 
 pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
-    let seq = get_seq(map).context("gen_field_defs")?;
-    let mut result = Vec::new();
-
-    for attr in seq {
-        let id = &attr.id;
-        let ty = attr.rust_type();
-        result.push(quote! { pub #id: #ty });
-    }
-
-    Ok(result)
+    Ok(get_seq(map)
+        .context("gen_field_defs")?
+        .iter()
+        .map(|a| a.definition())
+        .collect())
 }
 
 pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
     let meta = get_meta(info)?;
-    let seq = get_seq(info.map)?;
-    let mut result = Vec::with_capacity(seq.len());
-
-    for attr in seq {
-        let mut func_name = String::new();
-
-        func_name.push_str(&attr.id.to_string());
-        func_name.push_str(": ");
-        match attr.rust_type() {
-            TypeDef::BuiltIn(_) => {
-                func_name.push_str("buf.read_");
-                func_name.push_str(&attr.ks_type);
-                func_name.push_str(&meta.endianness.to_string());
-                func_name.push_str("()?");
-            }
-            TypeDef::UserDefined(_) => {
-                // Generates something like: "CustomType::new(buf)?"
-                // We are banking on the fact that this type is defined as a subtype
-                // in the ksy file and that its name will be the same.
-                func_name.push_str(&sc_to_ucc(&attr.ks_type));
-                func_name.push_str("::new(buf)?");
-            }
-            TypeDef::Enum(_) => {
-                // TODO remove unwrap
-                func_name.push_str(&sc_to_ucc(&attr.enum_ident.unwrap()));
-                func_name.push_str("::n(");
-                func_name.push_str("buf.read_");
-                func_name.push_str(&attr.ks_type);
-                func_name.push_str(&meta.endianness.to_string());
-                func_name.push_str("()?");
-                func_name.push_str(").ok_or(::kaitai::error::Error::NoEnumMatch)?");
-            }
-        }
-
-        // TODO handle unwrap. I think this would only fail if attr.ks_type is something very weird
-        // and is not lexically valid.
-        result.push(func_name.parse().unwrap());
-    }
-
-    Ok(result)
+    Ok(get_seq(info.map)?
+        .iter()
+        .map(|a| a.assignment(&meta))
+        .collect())
 }
 
 #[cfg(test)]
