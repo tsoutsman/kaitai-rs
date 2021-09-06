@@ -24,6 +24,7 @@ use syn::parse_macro_input;
 use yaml_rust::Yaml;
 
 // Since this macro gets re-exported in kaitai, crate-level refers to kaitai not kaitai-macros.
+// TODO is there a way to link "crate-level documentation" to the main kaitai crate?
 /// See crate-level documentation for information on how to use this macro.
 #[tarpaulin::skip]
 #[proc_macro_attribute]

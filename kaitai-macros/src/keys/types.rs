@@ -119,13 +119,13 @@ pub fn gen_type_def(info: &TypeInfo<'_>) -> Result<TokenStream> {
         // macros. Since this `kaitai_source` isn't a derive macro, the `automatically_derived`
         // attributed must be applied manually.
         #[automatically_derived]
-        impl ::kaitai::runtime::KaitaiStruct for #ident {
-            fn new<S: ::kaitai::runtime::KaitaiStream>(buf: &mut S) -> ::kaitai::error::Result<Self> {
+        impl ::kaitai::KaitaiStruct for #ident {
+            fn new<S: ::kaitai::__private::KaitaiStream>(buf: &mut S) -> ::kaitai::error::Result<Self> {
                 Ok(#ident {
                     #(#field_assignments,)*
                 })
             }
-            fn read<S: ::kaitai::runtime::KaitaiStream>(&mut self, _: &mut S) -> ::kaitai::error::Result<()> {
+            fn read<S: ::kaitai::__private::KaitaiStream>(&mut self, _: &mut S) -> ::kaitai::error::Result<()> {
                 todo!();
             }
         }

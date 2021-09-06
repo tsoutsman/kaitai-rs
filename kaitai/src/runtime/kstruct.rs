@@ -2,20 +2,21 @@
 // Although this file is not a copy-paste, without their work this would have been much harder.
 use crate::{error::Result, runtime::KaitaiStream};
 
-// TODO fixed the Sizable issue :)
-
-/// The trait that is implemented by all structs created from a ksy file.
+/// The trait that is implemented by the [kaitai_source](crate::kaitai_source) macro.
 pub trait KaitaiStruct
 where
     Self: Sized,
 {
-    /// Create a KaitaitStruct from a file, relative to the root of the project.
+    // TODO fix the documentation for this function and `from_bytes`. I can't find the correct
+    // terms to use.
+    /// Create an instance of a `KaitaiStruct` format from a file, relative to the root
+    /// of the project.
     fn from_file(path: &str) -> Result<Self> {
         let mut f = std::fs::File::open(path)?;
         Self::new(&mut f)
     }
 
-    /// Create a KaitaiStruct from a file, relative to the root of the project.
+    /// Create an instance of a `KaitaiStruct` format from an array of bytes.
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut b = std::io::Cursor::new(bytes);
         Self::new(&mut b)

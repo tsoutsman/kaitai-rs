@@ -3,6 +3,7 @@
 //! A macro for compiling Kaitai Struct into Rust.
 //!
 //! # Example
+//!
 //! Given the following file `basic_be.ksy`:
 //! ```yaml
 //! meta:
@@ -18,22 +19,24 @@
 //! ```
 //! The rust code to read a `basic_be` buffer would look something like this:
 //! ```
-//! # use kaitai::{kaitai_source, runtime::KaitaiStruct, error::Result};
+//! # use kaitai::{kaitai_source, KaitaiStruct, error::Result};
 //! #[kaitai_source("../tests/formats/basic_be.ksy")]
 //! struct BasicBigEndian;
 //!
 //! fn main() -> Result<()> {
 //!     let file = BasicBigEndian::from_file("tests/files/example.basic")?;
 //!
-//!     println!("head: {}", file.body);
+//!     println!("header: {}", file.header);
 //!     println!("body: {}", file.body);
-//!     println!("tail: {}", file.body);
+//!     println!("tail: {}", file.tail);
 //! #   Ok(())
 //! }
 //! ```
+//!
 //! # Semantics
-//! The filepath provided to `kaitai_source` is taken relative to the current file, similarly to how
-//! modules are found. However, the filepath provided to `from_file` is taken relative to the root
+//!
+//! The filepath provided to [`kaitai_source`] is taken relative to the current file, similarly to how
+//! modules are found. However, the filepath provided to [`from_file`](KaitaiStruct::from_file) is taken relative to the root
 //! of the project, like [`std::fs::File::open`].
 #![feature(extend_one, seek_stream_len)]
 #![deny(
@@ -49,11 +52,13 @@
 
 pub mod error;
 
-//
-// Public exports
-//
-
 #[doc(inline)]
 pub use kaitai_macros::kaitai_source;
 
-pub mod runtime;
+mod runtime;
+pub use runtime::KaitaiStruct;
+
+#[doc(hidden)]
+pub mod __private {
+    pub use crate::runtime::KaitaiStream;
+}

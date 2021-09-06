@@ -1,4 +1,4 @@
-use kaitai::{kaitai_source, runtime::KaitaiStruct};
+use kaitai::{kaitai_source, KaitaiStruct};
 
 #[kaitai_source("formats/enums.ksy")]
 struct EnumsStruct;
