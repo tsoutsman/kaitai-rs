@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    keys::{meta::get_meta, types::TypeInfo},
+    keys::doc::doc,
     util::{get_attr, get_required_attr, sc_to_ucc},
 };
 
@@ -10,14 +10,8 @@ use quote::{quote, ToTokens};
 use syn::Ident;
 use yaml_rust::{yaml, Yaml};
 
+use super::doc::DocSpec;
 use super::meta::MetaSpec;
-
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Attribute {
-    pub id: Ident,
-    pub ks_type: String,
-    pub enum_ident: Option<String>,
-}
 
 /// Describes the rust type of a Kaitai Struct attribute.
 #[derive(Clone, Debug)]
@@ -32,13 +26,20 @@ pub enum TypeDef {
 
 impl ToTokens for TypeDef {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        // I swear there must be a better way to do this.
         match &self {
-            TypeDef::BuiltIn(t) => tokens.extend(std::iter::once(t.clone())),
-            TypeDef::Struct(t) => tokens.extend(std::iter::once(t.clone())),
-            TypeDef::Enum(t) => tokens.extend(std::iter::once(t.clone())),
+            TypeDef::BuiltIn(t) => tokens.extend(t.clone()),
+            TypeDef::Struct(t) => tokens.extend(t.clone()),
+            TypeDef::Enum(t) => tokens.extend(t.clone()),
         };
     }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Attribute {
+    pub id: Ident,
+    pub ks_type: String,
+    pub enum_ident: Option<String>,
+    pub doc: DocSpec,
 }
 
 impl Attribute {
@@ -197,17 +198,31 @@ impl Attribute {
     }
 }
 
-fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Attributes(Vec<Attribute>);
+
+impl Attributes {
+    pub fn field_definitions(&self) -> Vec<TokenStream> {
+        self.0.iter().map(|a| a.definition()).collect()
+    }
+
+    pub fn field_assignments(&self, meta: &MetaSpec) -> Vec<TokenStream> {
+        self.0.iter().map(|a| a.assignment(meta)).collect()
+    }
+}
+
+pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
     let seq = get_required_attr!(map; "seq" as Yaml::Array(a) => a).context("get_seq")?;
     let mut result = Vec::new();
 
     for item in seq {
         result.push(match item {
-            Yaml::Hash(h) => Attribute {
-                id: get_required_attr!(h; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
+            Yaml::Hash(m) => Attribute {
+                id: get_required_attr!(m; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
                     .context("get_seq")?,
-                ks_type: get_required_attr!(h; "type" as Yaml::String(s) => s.clone()).context("get_seq")?,
-                enum_ident: get_attr!(h; "enum" as Yaml::String(s) => s.clone()).context("get_seq")?,
+                ks_type: get_required_attr!(m; "type" as Yaml::String(s) => s.clone()).context("get_seq")?,
+                enum_ident: get_attr!(m; "enum" as Yaml::String(s) => s.clone()).context("get_seq")?,
+                doc: doc(m).context("get_seq")?,
             },
             _ => {
                 return Err(Error::InvalidAttribute(
@@ -217,23 +232,7 @@ fn get_seq(map: &yaml::Hash) -> Result<Vec<Attribute>> {
         });
     }
 
-    Ok(result)
-}
-
-pub fn gen_field_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
-    Ok(get_seq(map)
-        .context("gen_field_defs")?
-        .iter()
-        .map(|a| a.definition())
-        .collect())
-}
-
-pub fn gen_field_assignments(info: &TypeInfo<'_>) -> Result<Vec<TokenStream>> {
-    let meta = get_meta(info)?;
-    Ok(get_seq(info.map)?
-        .iter()
-        .map(|a| a.assignment(&meta))
-        .collect())
+    Ok(Attributes(result))
 }
 
 #[cfg(test)]
@@ -242,17 +241,11 @@ mod tests {
     use crate::util::assert_pattern;
     use yaml_rust::YamlLoader;
 
-    macro_rules! ys {
-        ($lit:literal) => {
-            Yaml::String($lit.to_owned())
-        };
-    }
-
     #[test]
     fn no_seq() {
         let input = yaml::Hash::new();
 
-        let result = get_seq(&input);
+        let result = seq(&input);
 
         assert_eq!(
             result.unwrap_err().downcast_ref::<Error>().unwrap(),
@@ -262,15 +255,15 @@ mod tests {
 
     #[test]
     fn missing_type() {
-        let mut attr = yaml::Hash::new();
-        attr.insert(ys!("id"), ys!("example_id"));
+        let map = &YamlLoader::load_from_str(
+            "
+seq:
+  - id: foo\0",
+        )
+        .unwrap()[0];
+        let map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
 
-        let seq = vec![Yaml::Hash(attr)];
-
-        let mut input = yaml::Hash::new();
-        input.insert(ys!("seq"), Yaml::Array(seq));
-
-        let result = get_seq(&input);
+        let result = seq(map);
 
         assert_eq!(
             result.unwrap_err().downcast_ref::<Error>().unwrap(),
@@ -280,50 +273,60 @@ mod tests {
 
     #[test]
     fn wrong_id_type() {
-        let mut attr = yaml::Hash::new();
-        attr.insert(ys!("id"), Yaml::Hash(yaml::Hash::new()));
-        attr.insert(ys!("type"), ys!("example_type"));
+        let map = &YamlLoader::load_from_str(
+            "
+seq:
+  - id: 3
+    type: example_type\0",
+        )
+        .unwrap()[0];
+        let map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
 
-        let seq = vec![Yaml::Hash(attr)];
-
-        let mut input = yaml::Hash::new();
-        input.insert(ys!("seq"), Yaml::Array(seq));
-
-        let result = get_seq(&input);
+        let result = seq(map);
 
         assert_eq!(
             result.unwrap_err().downcast_ref::<Error>().unwrap(),
             &Error::InvalidAttrType {
                 attr: "id".to_owned(),
                 pat: "Yaml::String(s)".to_owned(),
-                actual: Yaml::Hash(yaml::Hash::new()),
+                actual: Yaml::Integer(3),
             }
         );
     }
 
     #[test]
     fn all_attributes() {
-        let mut attr = yaml::Hash::new();
-        attr.insert(ys!("id"), ys!("example_id"));
-        attr.insert(ys!("type"), ys!("example_type"));
+        let map = &YamlLoader::load_from_str(
+            "
+seq:
+  - id: example_id
+    type: example_type
+    doc: foo
+    doc-ref: bar
+  - id: example_id
+    type: example_type
+    doc: foo
+    doc-ref: bar\0",
+        )
+        .unwrap()[0];
+        let map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
 
-        let seq = vec![Yaml::Hash(attr); 2];
-
-        let mut input = yaml::Hash::new();
-        input.insert(ys!("seq"), Yaml::Array(seq));
-
-        let result = get_seq(&input);
+        let result = seq(map);
 
         assert_eq!(
             result.unwrap(),
-            vec![
+            Attributes(vec![
                 Attribute {
                     id: Ident::new("example_id", Span::call_site()),
                     ks_type: "example_type".to_owned(),
-                    enum_ident: None
+                    enum_ident: None,
+                    doc: DocSpec {
+                        description: Some("foo".to_owned()),
+                        reference: Some("bar".to_owned())
+                    },
                 };
                 2
-            ]
+            ])
         );
     }
 

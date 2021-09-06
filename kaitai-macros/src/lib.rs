@@ -62,7 +62,7 @@ pub fn kaitai_source(
         &yaml_rust::YamlLoader::load_from_str(&file_contents).expect("error parsing ksy file: ")[0];
 
     let result = match structure {
-        Yaml::Hash(map) => types::gen_type_def(&types::TypeInfo {
+        Yaml::Hash(map) => types::ty(types::TypeData {
             map,
             ident: struct_item.ident,
             attrs: struct_item.attrs,
@@ -73,7 +73,7 @@ pub fn kaitai_source(
     };
 
     match result {
-        Ok(t) => t.into(),
+        Ok(t) => quote::quote! { #t }.into(),
         Err(e) => panic!("{:?}", e),
     }
 }

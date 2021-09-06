@@ -1,20 +1,69 @@
 use crate::util::{assert_pattern, get_attr, sc_to_ucc};
 
+use std::convert::TryFrom;
+
 use anyhow::{Context, Result};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use yaml_rust::{yaml, Yaml};
 
-#[allow(dead_code)]
-pub struct EnumSpec {
-    pub ident: Ident,
-    pub variants: Vec<(Ident, TokenStream)>,
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct EnumsSpec(Vec<EnumSpec>);
+
+impl ToTokens for EnumsSpec {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for e in &self.0 {
+            tokens.extend(quote! { #e });
+        }
+    }
 }
 
-fn get_enums(map: &yaml::Hash) -> Result<Vec<EnumSpec>> {
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct EnumSpec {
+    pub ident: Ident,
+    pub variants: Vec<(Ident, usize)>,
+}
+
+impl ToTokens for EnumSpec {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let EnumSpec { ident, variants } = self;
+
+        let variant_defs = variants.iter().map(|(ident, value)| {
+            quote! {#ident = #value}
+        });
+
+        let n_matches = variants.iter().map(|(ident, value)| {
+            quote! { #value => ::std::option::Option::Some(Self::#ident) }
+        });
+
+        tokens.extend(quote! {
+            #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+            // TODO is this repr ok?
+            #[repr(usize)]
+            pub enum #ident {
+                #(#variant_defs),*
+            }
+
+            impl #ident {
+                // For some reason using an Into bound on N doesn't work so I have to use
+                // this weird where clause.
+                // TODO add doc comment for this function.
+                pub fn n<N>(n: N) -> Option<Self> where usize: From<N> {
+                    match usize::from(n) {
+                        #(#n_matches),*,
+                        _ => None,
+                    }
+                }
+            }
+        });
+    }
+}
+
+// TODO rewrite
+pub fn enums(map: &yaml::Hash) -> Result<EnumsSpec> {
     let enums = match get_attr!(map; "enums" as Yaml::Hash(m) => m).context("get_enums")? {
         Some(e) => e,
-        None => return Ok(Vec::new()),
+        None => return Ok(EnumsSpec(Vec::new())),
     };
 
     let mut result = Vec::new();
@@ -45,8 +94,9 @@ fn get_enums(map: &yaml::Hash) -> Result<Vec<EnumSpec>> {
             .context("get_enums")?;
             let variant_value = assert_pattern!(
                 variant_value;
-                // TODO remove to_string call
-                Yaml::Integer(i) => i.to_string().parse().unwrap();
+                // TODO handle this unwrap
+                // TODO can KS enums be negative?
+                Yaml::Integer(i) => usize::try_from(*i).unwrap();
                 attr: "variant value";
             )
             .context("get_enums")?;
@@ -59,74 +109,5 @@ fn get_enums(map: &yaml::Hash) -> Result<Vec<EnumSpec>> {
         });
     }
 
-    Ok(result)
-}
-
-pub fn gen_enum_defs(map: &yaml::Hash) -> Result<Vec<TokenStream>> {
-    let enums = get_enums(map).context("gen_enum_defs")?;
-    let mut result = Vec::with_capacity(enums.len());
-
-    for EnumSpec { ident, variants } in enums {
-        let variant_defs = variants.iter().map(|(ident, value)| {
-            quote! {#ident = #value}
-        });
-
-        let n_matches = variants.iter().map(|(ident, value)| {
-            quote! { #value => ::std::option::Option::Some(Self::#ident) }
-        });
-
-        result.push(quote! {
-            #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-            pub enum #ident {
-                #(#variant_defs),*
-            }
-
-            impl #ident {
-                // For some reason using an Into bound on N doesn't work so I have to use
-                // this weird where clause.
-                pub fn n<N>(n: N) -> Option<Self> where i128: From<N> {
-                    match i128::from(n) {
-                        #(#n_matches),*,
-                        _ => None,
-                    }
-                }
-            }
-        });
-    }
-
-    Ok(result)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use yaml_rust::YamlLoader;
-
-    // #[test]
-    fn _test_gen_enum_defs() {
-        let map = &YamlLoader::load_from_str(
-            "
-enums:
-  chunk_type:
-    0x4E4F534A: json # JSON
-    0x004E4942: bin  # BIN
-  another_enum:
-    0xDEADBEEF: json # JSON
-    0x3: bin  # BIN\0",
-        )
-        .unwrap()[0];
-        let map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
-
-        let result = gen_enum_defs(map).unwrap();
-
-        assert_eq!(result.len(), 2);
-        assert_eq!(
-            result[0].to_string(),
-            "pub enum ChunkType { Json = 1313821514 , Bin = 5130562 }"
-        );
-        assert_eq!(
-            result[1].to_string(),
-            "pub enum AnotherEnum { Json = 3735928559 , Bin = 3 }"
-        );
-    }
+    Ok(EnumsSpec(result))
 }

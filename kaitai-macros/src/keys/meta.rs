@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    types::TypeInfo,
+    types::TypeData,
     util::{get_attr, get_required_attr},
 };
 
@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 use anyhow::{Context, Result};
 use yaml_rust::Yaml;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Endianness {
     Le,
     Be,
@@ -37,20 +37,19 @@ impl std::convert::TryFrom<&str> for Endianness {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct MetaSpec {
-    pub id: String,
     pub endianness: Endianness,
 }
 
-pub fn get_meta(info: &TypeInfo<'_>) -> Result<MetaSpec> {
+pub fn meta(info: &TypeData<'_>) -> Result<MetaSpec> {
     let map = info.map;
     let meta = match get_attr!(map; "meta" as Yaml::Hash(h) => h).context("get_meta")? {
         // The type has a `MetaSpec`. It is assumed that the provided `MetaSpec` overwrites the
         // inherited one.
         Some(m) => m,
         None => {
-            if let Some(m) = info.inherited_meta.clone() {
+            if let Some(m) = info.inherited_meta {
                 // The type doesn't have a `MetaSpec` but it inherits one.
                 return Ok(m);
             } else {
@@ -61,7 +60,6 @@ pub fn get_meta(info: &TypeInfo<'_>) -> Result<MetaSpec> {
         }
     };
 
-    let id = get_required_attr!(meta; "id" as Yaml::String(s) => s.clone()).context("get_meta")?;
     let endianness = Endianness::try_from(
         get_required_attr!(meta; "endian" as Yaml::String(s) => s)
             .context("get_meta")?
@@ -69,5 +67,5 @@ pub fn get_meta(info: &TypeInfo<'_>) -> Result<MetaSpec> {
     )
     .context("get_meta")?;
 
-    Ok(MetaSpec { id, endianness })
+    Ok(MetaSpec { endianness })
 }
