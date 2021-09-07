@@ -31,6 +31,7 @@ pub struct Attribute {
     pub id: Ident,
     pub ks_type: String,
     pub enum_ident: Option<String>,
+    pub repeat: Option<Repeat>,
     pub doc: DocSpec,
 }
 
@@ -108,7 +109,13 @@ impl Attribute {
     pub fn definition(&self) -> TokenStream {
         let doc = &self.doc;
         let id = &self.id;
-        let ty = self.rust_type();
+
+        let rust_type = self.rust_type();
+        let ty = match self.repeat {
+            Some(_) => quote! { Vec<#rust_type> },
+            None => quote! { #rust_type },
+        };
+
         quote! {
             #doc
             pub #id: #ty
@@ -169,24 +176,47 @@ impl Attribute {
     pub fn assignment(&self, meta: &MetaSpec) -> TokenStream {
         let mut assignment = format!("{}: ", self.id);
 
+        let read_call;
         match self.rust_type() {
             TypeDef::BuiltIn(_) => {
-                assignment += &format!("buf.read_{}{}()?", self.ks_type, self.endianness(meta));
+                read_call = format!("buf.read_{}{}()?", self.ks_type, self.endianness(meta));
             }
             TypeDef::Struct(t) => {
                 // Generates something like: "CustomType::new(buf)?"
                 // We are banking on the fact that this type is defined as a subtype
                 // in the ksy file and that its name will be the same.
-                assignment += &format!("{}::new(buf)?", t);
+                read_call = format!("{}::new(buf)?", t);
             }
             TypeDef::Enum(t) => {
-                assignment += &format!(
+                read_call = format!(
                     "{}::n(buf.read_{}{}()?).ok_or(::kaitai::error::Error::NoEnumMatch)?",
                     t,
                     self.ks_type,
                     self.endianness(meta)
                 );
             }
+        }
+
+        match self.repeat {
+            Some(ref r) => match r {
+                Repeat::Eos => {
+                    assignment += &format!(
+                        "
+{{
+    let mut result = Vec::new();
+    while !buf.is_eof()? {{
+        result.push({})
+    }}
+    result
+}}
+",
+                        read_call
+                    )
+                }
+                Repeat::Expr(_) => todo!("Repeat::Expr"),
+                Repeat::Until(_) => todo!("Repeat::Until"),
+            },
+            None => assignment += &read_call,
         }
 
         // TODO handle unwrap
@@ -215,6 +245,15 @@ impl ToTokens for TypeDef {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum Repeat {
+    Eos,
+    #[allow(dead_code)]
+    Expr(String),
+    #[allow(dead_code)]
+    Until(String),
+}
+
 pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
     let seq = get_required_attr!(map; "seq" as Yaml::Array(a) => a)
         .context("seq: seq is not an array")?;
@@ -228,6 +267,10 @@ pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
                 ks_type: get_required_attr!(m; "type" as Yaml::String(s) => s.clone()).context("seq: type is not found or it is not a string")?,
                 enum_ident: get_attr!(m; "enum" as Yaml::String(s) => s.clone()).context("seq: enum ident is not a string")?,
                 doc: doc(m).context("seq: error parsing doc/doc-ref")?,
+                repeat: get_attr!(m; "repeat" as Yaml::String(s) => match s.as_ref() {
+                    "eos" => Repeat::Eos,
+                    _ => todo!()
+                }).context("seq: repeat is not a string")?
             },
             _ => {
                 return Err(Error::InvalidAttribute(
@@ -308,10 +351,12 @@ seq:
     type: example_type
     doc: foo
     doc-ref: bar
+    repeat: eos
   - id: example_id
     type: example_type
     doc: foo
-    doc-ref: bar\0",
+    doc-ref: bar
+    repeat: eos\0",
         )
         .unwrap()[0];
         let map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
@@ -329,6 +374,7 @@ seq:
                         description: Some("foo".to_owned()),
                         reference: Some("bar".to_owned())
                     },
+                    repeat: Some(Repeat::Eos)
                 };
                 2
             ])

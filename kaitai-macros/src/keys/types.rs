@@ -127,7 +127,8 @@ pub fn types(data: &TypeData<'_>) -> Result<TypesSpec> {
         let child_info = TypeData {
             map,
             ident,
-            attrs: Vec::new(),
+            // We want all children to derive Debug, PartialEq, and Eq (TODO I think).
+            attrs: vec![syn::parse_quote!(#[derive(Debug, PartialEq, Eq)])],
             visibility: data.visibility.clone(),
             inherited_meta: data.inherited_meta,
         };
