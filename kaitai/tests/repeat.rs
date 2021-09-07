@@ -29,7 +29,7 @@ fn repeat_eos() {
         },
     ];
 
-    let result = Repeat::from_bytes(&input[..]).unwrap();
+    let result = Repeat::from_bytes(&input).unwrap();
 
     assert_eq!(result.pre_repeat, 0xadde);
     assert_eq!(result.main, expected);
