@@ -172,10 +172,13 @@ impl Attribute {
             let doc = &self.doc;
             let id = &self.id;
 
-            let rust_type = c.rust_type();
+            let ty = match &c.enum_ident {
+                Some(i) => TypeDef::Custom(Ident::new(&sc_to_ucc(i), Span::call_site())),
+                None => c.ty.clone(),
+            };
             let ty = match c.repeat {
-                Some(_) => quote! { Vec<#rust_type> },
-                None => quote! { #rust_type },
+                Some(_) => quote! { Vec<#ty> },
+                None => quote! { #ty },
             };
 
             quote! {
@@ -255,24 +258,25 @@ impl Attribute {
 
                 let read_call;
 
-                match c.rust_type() {
-                    TypeDef::BuiltIn(_) => {
-                        read_call = format!("buf.read_{}{}()?", c.ks_type, c.endianness(meta));
+                match c.ty {
+                    TypeDef::BuiltIn(ref t) => {
+                        let temp = format!("buf.read_{}{}()?", t.ks_type(), c.endianness(meta));
+
+                        read_call = match c.enum_ident {
+                            Some(ref i) => format!(
+                                "{}::n({}).ok_or(::kaitai::error::Error::NoEnumMatch)?",
+                                i, temp
+                            ),
+                            None => temp,
+                        }
                     }
-                    TypeDef::Struct(t) => {
+                    TypeDef::Custom(ref t) => {
                         // Generates something like: "CustomType::new(buf)?"
                         // We are banking on the fact that this type is defined as a subtype
                         // in the ksy file and that its name will be the same.
                         read_call = format!("{}::new(buf)?", t);
                     }
-                    TypeDef::Enum(t) => {
-                        read_call = format!(
-                            "{}::n(buf.read_{}{}()?).ok_or(::kaitai::error::Error::NoEnumMatch)?",
-                            t,
-                            c.ks_type,
-                            c.endianness(meta)
-                        );
-                    }
+                    TypeDef::Switch { .. } => todo!(),
                 }
 
                 match c.repeat {
@@ -308,24 +312,110 @@ impl Attribute {
     }
 }
 
-/// Describes the rust type of a Kaitai Struct attribute.
-#[derive(Clone, Debug)]
+/// Describes the rust type of a Kaitai Strict attribute.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TypeDef {
     /// The type is a builtin (e.g. [`u8`], [`i32`], [`f64`]).
-    BuiltIn(TokenStream),
+    BuiltIn(BuiltIn),
     /// The type is a custom struct (i.e. defined in `types` in the KS file).
-    Struct(TokenStream),
     /// The type is an enum (i.e. defined in `enums` in the KS file).
-    Enum(TokenStream),
+    /// TODO
+    Custom(Ident),
+    #[allow(dead_code)]
+    Switch { on: String, cases: Vec<Case> },
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum BuiltIn {
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    F32,
+    F64,
+}
+
+impl BuiltIn {
+    pub fn ks_type(&self) -> String {
+        String::from(match self {
+            BuiltIn::U8 => "u1",
+            BuiltIn::U16 => "u2",
+            BuiltIn::U32 => "u4",
+            BuiltIn::U64 => "u8",
+            BuiltIn::I8 => "s1",
+            BuiltIn::I16 => "s2",
+            BuiltIn::I32 => "s4",
+            BuiltIn::I64 => "s8",
+            BuiltIn::F32 => "f4",
+            BuiltIn::F64 => "f8",
+        })
+    }
+}
+
+impl ToTokens for BuiltIn {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(match self {
+            BuiltIn::U8 => quote! { u8 },
+            BuiltIn::U16 => quote! { u16 },
+            BuiltIn::U32 => quote! { u32 },
+            BuiltIn::U64 => quote! { u64 },
+            BuiltIn::I8 => quote! { i8 },
+            BuiltIn::I16 => quote! { i16 },
+            BuiltIn::I32 => quote! { i32 },
+            BuiltIn::I64 => quote! { i64 },
+            BuiltIn::F32 => quote! { f32 },
+            BuiltIn::F64 => quote! { f64 },
+        });
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Case {
+    ident: CaseIdent,
+    ty: TypeDef,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[allow(dead_code)]
+pub enum CaseIdent {
+    Enum(String),
+    Int(i64),
 }
 
 impl ToTokens for TypeDef {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self {
-            TypeDef::BuiltIn(t) => tokens.extend(t.clone()),
-            TypeDef::Struct(t) => tokens.extend(t.clone()),
-            TypeDef::Enum(t) => tokens.extend(t.clone()),
+            TypeDef::BuiltIn(t) => tokens.extend(t.to_token_stream()),
+            // TODO get rid of unwrap
+            TypeDef::Custom(t) => tokens.extend(quote! { #t }),
+            TypeDef::Switch { .. } => todo!(),
         };
+    }
+}
+
+impl std::convert::TryFrom<&str> for TypeDef {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self> {
+        Ok(match s {
+            "u1" => TypeDef::BuiltIn(BuiltIn::U8),
+            "u2" => TypeDef::BuiltIn(BuiltIn::U16),
+            "u4" => TypeDef::BuiltIn(BuiltIn::U32),
+            "u8" => TypeDef::BuiltIn(BuiltIn::U64),
+            "s1" => TypeDef::BuiltIn(BuiltIn::I8),
+            "s2" => TypeDef::BuiltIn(BuiltIn::I16),
+            "s4" => TypeDef::BuiltIn(BuiltIn::I32),
+            "s8" => TypeDef::BuiltIn(BuiltIn::I64),
+            "f4" => TypeDef::BuiltIn(BuiltIn::F32),
+            "f8" => TypeDef::BuiltIn(BuiltIn::F64),
+            // The type is a user-defined type, meaning a struct or enum has (hopefully) been
+            // generated somewhere with the name in ucc.
+            &_ => TypeDef::Custom(Ident::new(&sc_to_ucc(s), Span::call_site())),
+        })
     }
 }
 
@@ -352,41 +442,21 @@ pub enum FixedContents {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct VariableContents {
-    ks_type: String,
+    ty: TypeDef,
     enum_ident: Option<String>,
     repeat: Option<Repeat>,
 }
 
 impl VariableContents {
+    /// Returns a [`String`] describing the endianness of the `VariableContents`.
+    ///
+    /// Little-endian contents return "le". Big-endian contents return "be".
+    ///
+    /// If the contents are of KS type `u1` or `s1`, the function will return an empty string.
     pub fn endianness(&self, meta: &MetaSpec) -> String {
-        match &self.ks_type[..] {
-            "u1" | "s1" => "".to_owned(),
+        match &self.ty {
+            TypeDef::BuiltIn(BuiltIn::U8 | BuiltIn::I8) => "".to_owned(),
             _ => meta.endianness.to_string(),
-        }
-    }
-
-    /// Returns a [`TypeDef`] representing the Rust type of the `VariableContents`.
-    pub fn rust_type(&self) -> TypeDef {
-        if let Some(ref i) = self.enum_ident {
-            return TypeDef::Enum(Ident::new(&sc_to_ucc(i), Span::call_site()).to_token_stream());
-        }
-
-        match &self.ks_type[..] {
-            "u1" => TypeDef::BuiltIn(quote! { u8 }),
-            "u2" => TypeDef::BuiltIn(quote! { u16 }),
-            "u4" => TypeDef::BuiltIn(quote! { u32 }),
-            "u8" => TypeDef::BuiltIn(quote! { u64 }),
-            "s1" => TypeDef::BuiltIn(quote! { i8 }),
-            "s2" => TypeDef::BuiltIn(quote! { i16 }),
-            "s4" => TypeDef::BuiltIn(quote! { i32 }),
-            "s8" => TypeDef::BuiltIn(quote! { i64 }),
-            "f4" => TypeDef::BuiltIn(quote! { f32 }),
-            "f8" => TypeDef::BuiltIn(quote! { f64 }),
-            // The type is a user-defined type, meaning a struct has been generated somewhere with
-            // the name in ucc.
-            &_ => TypeDef::Struct(
-                Ident::new(&sc_to_ucc(&self.ks_type), Span::call_site()).to_token_stream(),
-            ),
         }
     }
 }
@@ -448,12 +518,13 @@ pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
                 let contents = match fixed_contents(m)? {
                     Some(c) => Contents::Fixed(c),
                     None => {
-                        let ks_type = get_required_attr!(
+                        let ty = get_required_attr!(
                                                             m;
-                                                            "type" as Yaml::String(s) => s.clone())
+                                                            "type" as Yaml::String(s) => TypeDef::try_from(&s[..])?)
                         .context("seq: type is not found or it is not a string")?;
-                        let enum_ident = get_attr!(m; "enum" as Yaml::String(s) => s.clone())
-                            .context("seq: enum ident is not a string")?;
+                        let enum_ident =
+                            get_attr!(m; "enum" as Yaml::String(s) => sc_to_ucc(&s.clone()))
+                                .context("seq: enum ident is not a string")?;
                         let repeat = get_attr!(m; "repeat" as Yaml::String(s) => match s.as_ref() {
                             "eos" => Repeat::Eos,
                             _ => todo!()
@@ -461,7 +532,7 @@ pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
                         .context("seq: repeat is not a string")?;
 
                         Contents::Variable(VariableContents {
-                            ks_type,
+                            ty,
                             enum_ident,
                             repeat,
                         })
@@ -573,7 +644,7 @@ seq:
                         reference: Some("bar".to_owned())
                     },
                     contents: Contents::Variable(VariableContents {
-                        ks_type: "example_type".to_owned(),
+                        ty: TypeDef::Custom(Ident::new("ExampleType", Span::call_site())),
                         enum_ident: None,
                         repeat: Some(Repeat::Eos),
                     })
