@@ -21,7 +21,7 @@ impl ToTokens for EnumsSpec {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct EnumSpec {
     pub ident: Ident,
-    pub variants: Vec<(Ident, usize)>,
+    pub variants: Vec<(Ident, isize)>,
 }
 
 impl ToTokens for EnumSpec {
@@ -38,8 +38,7 @@ impl ToTokens for EnumSpec {
 
         tokens.extend(quote! {
             #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-            // TODO is this repr ok?
-            #[repr(usize)]
+            #[repr(isize)]
             pub enum #ident {
                 #(#variant_defs),*
             }
@@ -48,8 +47,8 @@ impl ToTokens for EnumSpec {
                 // For some reason using an Into bound on N doesn't work so I have to use
                 // this weird where clause.
                 // TODO add doc comment for this function.
-                pub fn n<N>(n: N) -> Option<Self> where usize: From<N> {
-                    match usize::from(n) {
+                pub fn n<N>(n: N) -> Option<Self> where isize: From<N> {
+                    match isize::from(n) {
                         #(#n_matches),*,
                         _ => None,
                     }
@@ -97,8 +96,7 @@ pub fn enums(map: &yaml::Hash) -> Result<EnumsSpec> {
             let variant_value = assert_pattern!(
                 variant_value;
                 // TODO handle this unwrap
-                // TODO can KS enums be negative?
-                Yaml::Integer(i) => usize::try_from(*i).unwrap();
+                Yaml::Integer(i) => isize::try_from(*i).unwrap();
                 attr: "enum variant value";
             )
             .context("enums: enum variant value is not an integer")?;

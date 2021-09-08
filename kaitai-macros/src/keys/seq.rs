@@ -51,6 +51,10 @@ impl Attributes {
         quote! { #(#declarations),* }
     }
 
+    pub fn case_enum_decls(&self) -> TokenStream {
+        self.0.iter().map(|a| a.enum_declaration()).collect()
+    }
+
     /// Generates the variable definitions for all the attributes contained.
     ///
     /// The output will also contain any checks defined by a `contents` key.
@@ -103,7 +107,7 @@ impl Attributes {
             .0
             .iter()
             .filter(|a| matches!(a.contents, Contents::Variable(_)))
-            .map(|a| &a.id);
+            .map(|a| &a.ident);
         quote! { #(#defs),* }
     }
 }
@@ -111,12 +115,16 @@ impl Attributes {
 /// Contains the information about a single attribute defined in the `seq` of a type.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Attribute {
-    pub id: Ident,
+    pub ident: Ident,
     pub doc: DocSpec,
     pub contents: Contents,
 }
 
 impl Attribute {
+    pub fn ucc_ident(&self) -> String {
+        sc_to_ucc(&self.ident.to_string())
+    }
+
     /// Returns a [`TokenStream`] containing the assignment of the `Attribute`.
     ///
     /// # Examples
@@ -170,7 +178,7 @@ impl Attribute {
     pub fn declaration(&self) -> TokenStream {
         if let Contents::Variable(ref c) = self.contents {
             let doc = &self.doc;
-            let id = &self.id;
+            let id = &self.ident;
 
             let ty = match &c.enum_ident {
                 Some(i) => TypeDef::Custom(Ident::new(&sc_to_ucc(i), Span::call_site())),
@@ -184,6 +192,24 @@ impl Attribute {
             quote! {
                 #doc
                 pub #id: #ty
+            }
+        } else {
+            TokenStream::new()
+        }
+    }
+
+    pub fn enum_declaration(&self) -> TokenStream {
+        if let Contents::Variable(VariableContents {
+            ty: TypeDef::Switch { cases, .. },
+            ..
+        }) = &self.contents
+        {
+            let ident = &self.ucc_ident();
+            let fields = cases.iter().map(|c| c.declaration());
+            quote! {
+                pub enum #ident {
+                    #(#fields),*
+                }
             }
         } else {
             TokenStream::new()
@@ -254,7 +280,7 @@ impl Attribute {
                 quote! { buf.ensure_fixed_contents(&#c)?; }
             }
             Contents::Variable(ref c) => {
-                let mut assignment = format!("let {} = ", self.id);
+                let mut assignment = format!("let {} = ", self.ident);
 
                 let read_call;
 
@@ -276,7 +302,9 @@ impl Attribute {
                         // in the ksy file and that its name will be the same.
                         read_call = format!("{}::new(buf)?", t);
                     }
-                    TypeDef::Switch { .. } => todo!(),
+                    TypeDef::Switch { .. } => {
+                        todo!();
+                    }
                 }
 
                 match c.repeat {
@@ -312,7 +340,7 @@ impl Attribute {
     }
 }
 
-/// Describes the rust type of a Kaitai Strict attribute.
+/// Describes the rust type of a Kaitai Struct attribute.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TypeDef {
     /// The type is a builtin (e.g. [`u8`], [`i32`], [`f64`]).
@@ -321,8 +349,10 @@ pub enum TypeDef {
     /// The type is an enum (i.e. defined in `enums` in the KS file).
     /// TODO
     Custom(Ident),
-    #[allow(dead_code)]
-    Switch { on: String, cases: Vec<Case> },
+    Switch {
+        on: String,
+        cases: Vec<Case>,
+    },
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -375,15 +405,32 @@ impl ToTokens for BuiltIn {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Case {
-    ident: CaseIdent,
+    value: CaseValue,
     ty: TypeDef,
 }
 
+impl Case {
+    pub fn declaration(&self) -> TokenStream {
+        let ident = &self.ty;
+        quote! {
+            #ident(#ident)
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-#[allow(dead_code)]
-pub enum CaseIdent {
-    Enum(String),
+pub enum CaseValue {
+    Enum(Ident),
     Int(i64),
+}
+
+impl ToTokens for CaseValue {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(match self {
+            CaseValue::Enum(i) => quote! { #i },
+            CaseValue::Int(n) => quote! { #n },
+        });
+    }
 }
 
 impl ToTokens for TypeDef {
@@ -397,11 +444,9 @@ impl ToTokens for TypeDef {
     }
 }
 
-impl std::convert::TryFrom<&str> for TypeDef {
-    type Error = anyhow::Error;
-
-    fn try_from(s: &str) -> Result<Self> {
-        Ok(match s {
+impl From<&str> for TypeDef {
+    fn from(s: &str) -> Self {
+        match s {
             "u1" => TypeDef::BuiltIn(BuiltIn::U8),
             "u2" => TypeDef::BuiltIn(BuiltIn::U16),
             "u4" => TypeDef::BuiltIn(BuiltIn::U32),
@@ -414,8 +459,8 @@ impl std::convert::TryFrom<&str> for TypeDef {
             "f8" => TypeDef::BuiltIn(BuiltIn::F64),
             // The type is a user-defined type, meaning a struct or enum has (hopefully) been
             // generated somewhere with the name in ucc.
-            &_ => TypeDef::Custom(Ident::new(&sc_to_ucc(s), Span::call_site())),
-        })
+            _ => TypeDef::Custom(Ident::new(&sc_to_ucc(s), Span::call_site())),
+        }
     }
 }
 
@@ -503,6 +548,59 @@ pub fn fixed_contents(map: &yaml::Hash) -> Result<Option<FixedContents>> {
     }
 }
 
+/// Gets the [`TypeDef`] corresponding to a [`yaml::Hash`] representing an [`Attribute`].
+///
+/// The `map` argument should be a [`yaml::Hash`] that corresponds to an attribute, for example:
+/// ```yaml
+/// id: type
+/// type: u4
+/// enum: chunk_type
+/// ```
+/// or
+/// ```yaml
+/// id: data
+/// size: len_data
+/// type:
+///   switch-on: type
+///   cases:
+///     'chunk_type::json': json
+///     'chunk_type::bin': bin
+///
+pub fn ty(map: &yaml::Hash) -> Result<TypeDef> {
+    match map.get(&yaml_rust::Yaml::String("type".to_owned())) {
+        Some(c) => match c {
+            Yaml::String(s) => Ok(TypeDef::try_from(&s[..])?),
+            Yaml::Hash(h) => {
+                let on = get_required_attr!(h; "switch-on" as Yaml::String(s) => s.clone())?;
+
+                let mut cases = Vec::new();
+                for case in get_required_attr!(h; "cases" as Yaml::Hash(m) => m.clone())? {
+                    let value = match case.0 {
+                        Yaml::Integer(n) => CaseValue::Int(n),
+                        Yaml::String(s) => CaseValue::Enum(Ident::new(&s, Span::call_site())),
+                        _ => todo!(),
+                    };
+                    let ty = case.1;
+                    let ty = TypeDef::try_from(
+                        &assert_pattern!(ty; Yaml::String(s) => s; attr: "case type")?[..],
+                    )?;
+
+                    cases.push(Case { value, ty });
+                }
+
+                Ok(TypeDef::Switch { on, cases })
+            }
+            _ => Err(Error::InvalidAttrType {
+                attr: "type".to_owned(),
+                pat: "Yaml::String(s) or Yaml::Hash(h)".to_owned(),
+                actual: c.clone(),
+            }
+            .into()),
+        },
+        None => Err(Error::RequiredAttrNotFound("type".to_owned()).into()),
+    }
+}
+
 pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
     let seq = get_required_attr!(map; "seq" as Yaml::Array(a) => a)
         .context("seq: seq is not an array")?;
@@ -511,17 +609,14 @@ pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
     for item in seq {
         let item = match item {
             Yaml::Hash(m) => {
-                let id = get_required_attr!(m; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
+                let ident = get_required_attr!(m; "id" as Yaml::String(s) => Ident::new(s, Span::call_site()))
                     .context("seq: id not found or it is not a string")?;
                 let doc = doc(m).context("seq: error parsing doc/doc-ref")?;
 
-                let contents = match fixed_contents(m)? {
+                let contents = match fixed_contents(m).context("seq: error parsing contents")? {
                     Some(c) => Contents::Fixed(c),
                     None => {
-                        let ty = get_required_attr!(
-                                                            m;
-                                                            "type" as Yaml::String(s) => TypeDef::try_from(&s[..])?)
-                        .context("seq: type is not found or it is not a string")?;
+                        let ty = ty(m).context("ty: error parsing type")?;
                         let enum_ident =
                             get_attr!(m; "enum" as Yaml::String(s) => sc_to_ucc(&s.clone()))
                                 .context("seq: enum ident is not a string")?;
@@ -539,7 +634,11 @@ pub fn seq(map: &yaml::Hash) -> Result<Attributes> {
                     }
                 };
 
-                Attribute { id, doc, contents }
+                Attribute {
+                    ident,
+                    doc,
+                    contents,
+                }
             }
 
             _ => {
@@ -638,7 +737,7 @@ seq:
             result.unwrap(),
             Attributes(vec![
                 Attribute {
-                    id: Ident::new("example_id", Span::call_site()),
+                    ident: Ident::new("example_id", Span::call_site()),
                     doc: DocSpec {
                         description: Some("foo".to_owned()),
                         reference: Some("bar".to_owned())
@@ -655,19 +754,23 @@ seq:
     }
 
     #[test]
-    fn attribute_enum() {
+    fn attribute_enum_declaration() {
         let map = &YamlLoader::load_from_str(
             "
 seq:
   - id: protocol
-    enum: ip_protocol
+    type: u4
   - id: another_thing
-    enum: enum_id\0",
+    type:
+      switch-on: protocol
+      cases:
+        0x5: json
+        0x6: bin\0",
         )
         .unwrap()[0];
-        let _map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
+        let map = assert_pattern!(map; Yaml::Hash(m) => m; attr: "irrelevant").unwrap();
 
-        // let result = gen_field_assignments(map).unwrap();
-        // eprintln!("RESULT: {:?}", result);
+        let result = seq(map).unwrap();
+        eprintln!("RESULT: {}", result.case_enum_decls());
     }
 }

@@ -64,6 +64,7 @@ impl ToTokens for TypeSpec {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let type_defs = &self.types;
         let enum_defs = &self.enums;
+        let case_enum_decls = &self.seq.case_enum_decls();
         let doc = &self.doc;
         let attrs = &self.rust_info.attrs;
         let visibility = &self.rust_info.visibility;
@@ -76,6 +77,8 @@ impl ToTokens for TypeSpec {
         #type_defs
 
         #enum_defs
+
+        #case_enum_decls
 
         #doc
         #(#attrs)*
