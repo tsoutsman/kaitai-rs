@@ -15,10 +15,33 @@ use quote::{quote, ToTokens};
 use syn::Ident;
 use yaml_rust::{yaml, Yaml};
 
+/// Contains the information about all the attributes defined in the `seq` of a type.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Attributes(Vec<Attribute>);
 
 impl Attributes {
+    /// Generates the field declarations for all the attributes contained.
+    ///
+    /// Any attributes that have fixed contents are ignored.
+    ///
+    /// # Example
+    ///
+    /// Assuming that encoding is little-endian.
+    ///
+    /// ```yaml
+    /// seq:
+    ///   - id: temp1
+    ///     type: u4
+    ///   - id: temp2
+    ///     type: custom_type_defined_elsewhere
+    ///   - id: temp3
+    ///     contents: hello
+    /// ```
+    /// would result in:
+    /// ```ignore
+    /// pub temp1: u32,
+    /// pub temp2: CustomTypeDefinedElsewhere
+    /// ```
     pub fn field_declarations(&self) -> TokenStream {
         let declarations = self
             .0
@@ -55,6 +78,26 @@ impl Attributes {
         self.0.iter().map(|a| a.var_def(meta)).collect()
     }
 
+    /// Generates the field definitions for all the attributes contained.
+    ///
+    /// # Example
+    ///
+    /// Assuming that encoding is little-endian.
+    ///
+    /// ```yaml
+    /// seq:
+    ///   - id: temp1
+    ///     type: u4
+    ///   - id: temp2
+    ///     type: custom_type_defined_elsewhere
+    ///   - id: temp3
+    ///     contents: hello
+    /// ```
+    /// would result in:
+    /// ```ignore
+    /// temp1,
+    /// temp2
+    /// ```
     pub fn field_defs(&self) -> TokenStream {
         let defs = self
             .0
@@ -65,6 +108,7 @@ impl Attributes {
     }
 }
 
+/// Contains the information about a single attribute defined in the `seq` of a type.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Attribute {
     pub id: Ident,
@@ -289,7 +333,7 @@ impl ToTokens for TypeDef {
 pub enum Repeat {
     Eos,
     #[allow(dead_code)]
-    Expr(String),
+    Expr(u32),
     #[allow(dead_code)]
     Until(String),
 }
