@@ -184,6 +184,10 @@ impl Attribute {
                 Some(i) => TypeDef::Custom(Ident::new(&sc_to_ucc(i), Span::call_site())),
                 None => c.ty.clone(),
             };
+            let ty = match &ty {
+                TypeDef::Switch { .. } => format!("{}Type", self.ucc_ident()).parse().unwrap(),
+                _ => ty.into_token_stream(),
+            };
             let ty = match c.repeat {
                 Some(_) => quote! { Vec<#ty> },
                 None => quote! { #ty },
@@ -204,7 +208,7 @@ impl Attribute {
             ..
         }) = &self.contents
         {
-            let ident = &self.ucc_ident();
+            let ident: TokenStream = format!("{}Type", &self.ucc_ident()).parse().unwrap();
             let fields = cases.iter().map(|c| c.declaration());
             quote! {
                 pub enum #ident {
@@ -302,8 +306,14 @@ impl Attribute {
                         // in the ksy file and that its name will be the same.
                         read_call = format!("{}::new(buf)?", t);
                     }
-                    TypeDef::Switch { .. } => {
-                        todo!();
+                    TypeDef::Switch { ref on, ref cases } => {
+                        let mut temp = format!("match {} {{", on);
+                        for c in cases {
+                            temp += &format!("{} => {},", c.value, "TODO");
+                        }
+                        temp += "}";
+
+                        read_call = temp;
                     }
                 }
 
@@ -370,6 +380,24 @@ pub enum BuiltIn {
 }
 
 impl BuiltIn {
+    fn ucc(&self) -> String {
+        match self {
+            BuiltIn::U8 => "U8",
+            BuiltIn::U16 => "U16",
+            BuiltIn::U32 => "U32",
+            BuiltIn::U64 => "U64",
+            BuiltIn::I8 => "I8",
+            BuiltIn::I16 => "I16",
+            BuiltIn::I32 => "I32",
+            BuiltIn::I64 => "I64",
+            BuiltIn::F32 => "F32",
+            BuiltIn::F64 => "F64",
+        }
+        .to_owned()
+    }
+}
+
+impl BuiltIn {
     pub fn ks_type(&self) -> String {
         String::from(match self {
             BuiltIn::U8 => "u1",
@@ -411,9 +439,23 @@ pub struct Case {
 
 impl Case {
     pub fn declaration(&self) -> TokenStream {
-        let ident = &self.ty;
-        quote! {
-            #ident(#ident)
+        // I hate Rust
+        match &self.ty {
+            TypeDef::BuiltIn(t) => {
+                let ident = TypeDef::Custom(Ident::new(&t.ucc(), Span::call_site()));
+                // E.g. U32(u32) a u32 variant which stores a u32.
+                quote! {
+                    #ident(#t)
+                }
+            }
+            TypeDef::Custom(_) => {
+                let ident = &self.ty;
+                quote! { #ident(#ident) }
+            }
+            TypeDef::Switch { .. } => {
+                let ident = &self.ty;
+                quote! { #ident(#ident) }
+            }
         }
     }
 }
@@ -422,6 +464,21 @@ impl Case {
 pub enum CaseValue {
     Enum(Ident),
     Int(i64),
+}
+
+impl From<&CaseValue> for String {
+    fn from(v: &CaseValue) -> Self {
+        match v {
+            CaseValue::Enum(i) => i.to_string(),
+            CaseValue::Int(n) => n.to_string(),
+        }
+    }
+}
+
+impl std::fmt::Display for CaseValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from(self))
+    }
 }
 
 impl ToTokens for CaseValue {
@@ -439,7 +496,7 @@ impl ToTokens for TypeDef {
             TypeDef::BuiltIn(t) => tokens.extend(t.to_token_stream()),
             // TODO get rid of unwrap
             TypeDef::Custom(t) => tokens.extend(quote! { #t }),
-            TypeDef::Switch { .. } => todo!(),
+            TypeDef::Switch { .. } => unreachable!(),
         };
     }
 }
