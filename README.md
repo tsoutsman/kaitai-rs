@@ -30,9 +30,9 @@ struct BasicBigEndian;
 fn main() -> Result<()> {
     let file = BasicBigEndian::from_file("tests/files/example.basic")?;
 
-    println!("head: {}", file.body);
+    println!("header: {}", file.header);
     println!("body: {}", file.body);
-    println!("tail: {}", file.body);
+    println!("tail: {}", file.tail);
 }
 ```
 ## Semantics
