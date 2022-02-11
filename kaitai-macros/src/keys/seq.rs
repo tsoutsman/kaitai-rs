@@ -256,13 +256,11 @@ impl Attribute {
             Contents::Variable(ref c) => {
                 let mut assignment = format!("let {} = ", self.id);
 
-                let read_call;
-
-                match c.ty {
+                let read_call = match c.ty {
                     TypeDef::BuiltIn(ref t) => {
                         let temp = format!("buf.read_{}{}()?", t.ks_type(), c.endianness(meta));
 
-                        read_call = match c.enum_ident {
+                        match c.enum_ident {
                             Some(ref i) => format!(
                                 "{}::n({}).ok_or(::kaitai::error::Error::NoEnumMatch)?",
                                 i, temp
@@ -274,10 +272,10 @@ impl Attribute {
                         // Generates something like: "CustomType::new(buf)?"
                         // We are banking on the fact that this type is defined as a subtype
                         // in the ksy file and that its name will be the same.
-                        read_call = format!("{}::new(buf)?", t);
+                        format!("{}::new(buf)?", t)
                     }
                     TypeDef::Switch { .. } => todo!(),
-                }
+                };
 
                 match c.repeat {
                     Some(ref r) => match r {

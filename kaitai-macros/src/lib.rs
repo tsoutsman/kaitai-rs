@@ -1,5 +1,6 @@
 //! Please see the main [kaitai](https://www.crates.io/crates/kaitai) crate.
 #![feature(proc_macro_span, register_tool)]
+#![allow(dead_code)]
 #![deny(
     non_ascii_idents,
     missing_docs,
@@ -11,6 +12,8 @@
     rustdoc::broken_intra_doc_links
 )]
 #![register_tool(tarpaulin)]
+
+mod de;
 
 mod error;
 mod keys;

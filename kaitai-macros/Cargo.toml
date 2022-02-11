@@ -20,6 +20,7 @@ proc-macro2 = "1"
 syn = { version = "1", features = ["extra-traits", "full"] }
 thiserror ="1.0"
 anyhow = "1.0"
+serde = { version = "*", features = ["derive"] }
 
 [badges]
 maintenance = { status = "experimental" }

@@ -73,7 +73,7 @@ pub trait KaitaiStream: Read + Seek {
     // The trait doesn't require a close method as buffers are automatically closed on drop.
     // The trait doesn't require a seek method as it is already implemented by std::io::Seek.
 
-    #[allow(missing_docs)]
+    #[allow(missing_docs, clippy::wrong_self_convention)]
     fn is_eof(&mut self) -> Result<bool> {
         // TODO: benchmark against:
         // let pos = self.pos()?;
