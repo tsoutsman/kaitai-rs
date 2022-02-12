@@ -13,8 +13,6 @@
 )]
 #![register_tool(tarpaulin)]
 
-mod de;
-
 mod error;
 mod keys;
 mod util;
@@ -80,3 +78,5 @@ pub fn kaitai_source(
         Err(e) => panic!("{:?}", e),
     }
 }
+
+mod de;
