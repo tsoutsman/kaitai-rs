@@ -13,8 +13,8 @@ pub struct Enum(HashMap<u64, EnumValue>);
 #[derive(Clone, Debug)]
 pub struct EnumValue {
     id: String,
-    doc: Option<String>,
-    doc_ref: Option<Vec<String>>,
+    doc: String,
+    doc_ref: Vec<String>,
 }
 
 impl<'de> Deserialize<'de> for EnumValue {
@@ -45,8 +45,8 @@ impl<'de> Deserialize<'de> for EnumValue {
             {
                 Ok(EnumValue {
                     id: id.to_owned(),
-                    doc: None,
-                    doc_ref: None,
+                    doc: String::new(),
+                    doc_ref: Vec::new(),
                 })
             }
 
@@ -56,8 +56,8 @@ impl<'de> Deserialize<'de> for EnumValue {
             {
                 Ok(EnumValue {
                     id,
-                    doc: None,
-                    doc_ref: None,
+                    doc: String::new(),
+                    doc_ref: Vec::new(),
                 })
             }
 
@@ -84,7 +84,7 @@ impl<'de> Deserialize<'de> for EnumValue {
                             doc = Some(map.next_value()?);
                         }
                         Field::DocRef => {
-                            struct DocRefDeserialize(Option<Vec<String>>);
+                            struct DocRefDeserialize(Vec<String>);
 
                             impl<'de> Deserialize<'de> for DocRefDeserialize {
                                 fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -98,12 +98,14 @@ impl<'de> Deserialize<'de> for EnumValue {
                             if doc_ref.is_some() {
                                 return Err(de::Error::duplicate_field("doc_ref"));
                             }
-                            doc_ref = map.next_value::<DocRefDeserialize>()?.0;
+                            doc_ref = Some(map.next_value::<DocRefDeserialize>()?.0);
                         }
                     }
                 }
 
                 let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
+                let doc = doc.unwrap_or_else(String::new);
+                let doc_ref = doc_ref.unwrap_or_else(Vec::new);
 
                 Ok(EnumValue { id, doc, doc_ref })
             }

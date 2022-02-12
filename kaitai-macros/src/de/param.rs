@@ -6,10 +6,11 @@ pub struct Param {
     id: String,
     #[serde(rename = "type")]
     ty: String,
-    doc: Option<String>,
+    #[serde(default)]
+    doc: String,
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    doc_ref: Option<Vec<String>>,
+    doc_ref: Vec<String>,
     #[serde(rename = "enum")]
     en: Option<String>,
 }

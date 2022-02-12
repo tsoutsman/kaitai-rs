@@ -1,24 +1,17 @@
-use crate::de::{attr::Attr, data::deserialize_string_or_seq, en::Enum, meta::Meta, param::Param};
+use crate::de::{attr::Attr, doc::Doc, en::Enum, meta::Meta, param::Param};
 
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
 pub struct Type {
     meta: Option<Meta>,
-    doc: Option<String>,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_string_or_seq")]
-    doc_ref: Option<Vec<String>>,
-    #[serde(default)]
+    #[serde(flatten)]
+    doc: Doc,
     params: Vec<Param>,
-    #[serde(default)]
     seq: Vec<Attr>,
-    #[serde(default)]
     types: HashMap<String, Type>,
-    #[serde(default)]
     instances: HashMap<String, Attr>,
-    #[serde(default)]
     enums: HashMap<String, Enum>,
 }
 

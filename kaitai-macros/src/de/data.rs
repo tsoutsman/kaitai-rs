@@ -7,7 +7,7 @@ pub enum IntegerValue {
     Literal(u64),
 }
 
-pub fn deserialize_string_or_seq<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+pub fn deserialize_string_or_seq<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -54,5 +54,5 @@ where
         }
     }
 
-    Ok(Some(deserializer.deserialize_any(StringOrSeqVisitor)?))
+    Ok(deserializer.deserialize_any(StringOrSeqVisitor)?)
 }

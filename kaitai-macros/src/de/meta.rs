@@ -1,53 +1,59 @@
 use crate::de::{data::deserialize_string_or_seq, util::bool_false};
 
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
+use serde::Deserialize;
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
 pub struct Meta {
-    id: String,
-    title: Option<String>,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_string_or_seq")]
-    application: Option<Vec<String>>,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_string_or_seq")]
-    file_extension: Option<Vec<String>>,
-    xref: Option<Xref>,
-    license: Option<String>,
-    ks_version: Option<String>,
+    pub id: Option<String>,
+    #[serde(flatten)]
+    pub doc: MetaDoc,
+    pub ks_version: Option<String>,
     #[serde(default = "bool_false")]
-    ks_debug: bool,
+    pub ks_debug: bool,
     #[serde(default = "bool_false")]
-    ks_opaque_types: bool,
-    #[serde(default)]
-    imports: Vec<String>,
-    encoding: Option<String>,
-    endian: Endianness,
+    pub ks_opaque_types: bool,
+    pub imports: Vec<String>,
+    pub encoding: Option<String>,
+    pub endian: Option<Endianness>,
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct MetaDoc {
+    pub title: String,
+    #[serde(deserialize_with = "deserialize_string_or_seq")]
+    pub application: Vec<String>,
+    #[serde(deserialize_with = "deserialize_string_or_seq")]
+    pub file_extension: Vec<String>,
+    pub xref: Xref,
+    pub license: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Endianness {
     Le,
     Be,
 }
 
-#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Xref {
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    forensicswiki: Option<Vec<String>>,
+    pub forensicswiki: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    iso: Option<Vec<String>>,
+    pub iso: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    justsolve: Option<Vec<String>>,
+    pub justsolve: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    loc: Option<Vec<String>>,
+    pub loc: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    mime: Option<Vec<String>>,
+    pub mime: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    pronom: Option<Vec<String>>,
+    pub pronom: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    rfc: Option<Vec<String>>,
+    pub rfc: Vec<String>,
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    wikidata: Option<Vec<String>>,
+    pub wikidata: Vec<String>,
 }

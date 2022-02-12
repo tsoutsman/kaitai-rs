@@ -11,10 +11,11 @@ use serde::{de, Deserialize, Deserializer};
 #[serde(rename_all = "kebab-case")]
 pub struct Attr {
     id: Option<String>,
-    doc: Option<String>,
+    #[serde(default)]
+    doc: String,
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_string_or_seq")]
-    doc_ref: Option<Vec<String>>,
+    doc_ref: Vec<String>,
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_contents")]
     contents: Option<Vec<u8>>,

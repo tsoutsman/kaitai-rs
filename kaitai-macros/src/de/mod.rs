@@ -1,9 +1,8 @@
-mod attr;
-mod data;
-mod meta;
-mod param;
-mod ty;
-
-mod util;
-
-mod en;
+pub mod attr;
+pub mod data;
+pub mod doc;
+pub mod en;
+pub mod meta;
+pub mod param;
+pub mod ty;
+pub mod util;
