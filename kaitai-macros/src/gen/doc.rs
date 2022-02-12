@@ -63,9 +63,5 @@ fn list<T>(iter: T) -> String
 where
     T: std::iter::IntoIterator<Item = String>,
 {
-    let mut list = String::new();
-    for item in iter {
-        list.push_str(&format!("- {}\n", item));
-    }
-    list
+    iter.into_iter().map(|i| format!("- {}\n", i)).collect()
 }

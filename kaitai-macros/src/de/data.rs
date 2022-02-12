@@ -54,5 +54,5 @@ where
         }
     }
 
-    Ok(deserializer.deserialize_any(StringOrSeqVisitor)?)
+    deserializer.deserialize_any(StringOrSeqVisitor)
 }

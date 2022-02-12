@@ -81,3 +81,4 @@ pub fn kaitai_source(
 
 mod de;
 mod gen;
+mod hir;

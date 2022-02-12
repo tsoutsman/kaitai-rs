@@ -1,4 +1,4 @@
-use crate::de::{data::deserialize_string_or_seq, util::bool_false};
+use crate::de::data::deserialize_string_or_seq;
 
 use serde::Deserialize;
 
@@ -9,9 +9,7 @@ pub struct Meta {
     #[serde(flatten)]
     pub doc: MetaDoc,
     pub ks_version: Option<String>,
-    #[serde(default = "bool_false")]
     pub ks_debug: bool,
-    #[serde(default = "bool_false")]
     pub ks_opaque_types: bool,
     pub imports: Vec<String>,
     pub encoding: Option<String>,

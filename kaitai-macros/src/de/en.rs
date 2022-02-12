@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::de::data::deserialize_string_or_seq;
+use crate::de::{data::deserialize_string_or_seq, doc::Doc};
 
 use serde::{
     de::{self, MapAccess},
@@ -13,8 +13,7 @@ pub struct Enum(HashMap<u64, EnumValue>);
 #[derive(Clone, Debug)]
 pub struct EnumValue {
     id: String,
-    doc: String,
-    doc_ref: Vec<String>,
+    doc: Doc,
 }
 
 impl<'de> Deserialize<'de> for EnumValue {
@@ -45,8 +44,7 @@ impl<'de> Deserialize<'de> for EnumValue {
             {
                 Ok(EnumValue {
                     id: id.to_owned(),
-                    doc: String::new(),
-                    doc_ref: Vec::new(),
+                    doc: Doc::default(),
                 })
             }
 
@@ -56,8 +54,7 @@ impl<'de> Deserialize<'de> for EnumValue {
             {
                 Ok(EnumValue {
                     id,
-                    doc: String::new(),
-                    doc_ref: Vec::new(),
+                    doc: Doc::default(),
                 })
             }
 
@@ -104,10 +101,12 @@ impl<'de> Deserialize<'de> for EnumValue {
                 }
 
                 let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
-                let doc = doc.unwrap_or_else(String::new);
-                let doc_ref = doc_ref.unwrap_or_else(Vec::new);
+                let doc = doc.unwrap_or_default();
+                let doc_ref = doc_ref.unwrap_or_default();
 
-                Ok(EnumValue { id, doc, doc_ref })
+                let doc = Doc { doc, doc_ref };
+
+                Ok(EnumValue { id, doc })
             }
         }
 

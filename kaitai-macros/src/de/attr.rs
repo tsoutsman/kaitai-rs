@@ -1,49 +1,66 @@
-use crate::de::{
-    data::{deserialize_string_or_seq, IntegerValue},
-    util::{bool_false, bool_true},
-};
+use crate::de::{data::IntegerValue, doc::Doc};
 
 use std::collections::HashMap;
 
 use serde::{de, Deserialize, Deserializer};
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", default)]
 pub struct Attr {
-    id: Option<String>,
-    #[serde(default)]
-    doc: String,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_string_or_seq")]
-    doc_ref: Vec<String>,
-    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(flatten)]
+    pub doc: Doc,
     #[serde(deserialize_with = "deserialize_contents")]
-    contents: Option<Vec<u8>>,
+    pub contents: Option<Vec<u8>>,
     #[serde(rename = "type")]
-    ty: Option<AttrType>,
-    repeat: Option<Repeat>,
-    repeat_expr: Option<IntegerValue>,
-    repeat_until: Option<String>,
+    pub ty: Option<AttrType>,
+    pub repeat: Option<Repeat>,
+    pub repeat_expr: Option<IntegerValue>,
+    pub repeat_until: Option<String>,
     #[serde(rename = "if")]
-    if_expr: Option<String>,
-    size: Option<IntegerValue>,
-    #[serde(default = "bool_false")]
-    size_eos: bool,
-    process: Option<String>,
+    pub if_expr: Option<String>,
+    pub size: Option<IntegerValue>,
+    pub size_eos: bool,
+    pub process: Option<String>,
     #[serde(rename = "enum")]
-    en: Option<String>,
-    encoding: Option<String>,
-    pad_right: Option<u64>,
-    terminator: Option<u64>,
-    #[serde(default = "bool_true")]
-    consume: bool,
-    #[serde(default = "bool_false")]
-    include: bool,
-    #[serde(default = "bool_true")]
-    eos_error: bool,
-    pos: Option<IntegerValue>,
-    io: Option<String>,
-    value: Option<String>,
+    pub en: Option<String>,
+    pub encoding: Option<String>,
+    pub pad_right: Option<u64>,
+    pub terminator: Option<u64>,
+    pub consume: bool,
+    pub include: bool,
+    pub eos_error: bool,
+    pub pos: Option<IntegerValue>,
+    pub io: Option<String>,
+    pub value: Option<String>,
+}
+
+impl Default for Attr {
+    fn default() -> Self {
+        Self {
+            id: None,
+            doc: Doc::default(),
+            contents: None,
+            ty: None,
+            repeat: None,
+            repeat_expr: None,
+            repeat_until: None,
+            if_expr: None,
+            size: None,
+            size_eos: false,
+            process: None,
+            en: None,
+            encoding: None,
+            pad_right: None,
+            terminator: None,
+            consume: true,
+            include: false,
+            eos_error: true,
+            pos: None,
+            io: None,
+            value: None,
+        }
+    }
 }
 
 fn deserialize_contents<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
