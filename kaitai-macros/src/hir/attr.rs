@@ -24,7 +24,7 @@ impl Attribute {
             Logic::FixedContents(_) => return TokenStream::new(),
             Logic::Type(ty) => ty.ty(),
             Logic::Switch { .. } => todo!(),
-            Logic::Size(_) => quote! { Vec<u8> },
+            Logic::Size(_) => quote! { ::std::vec::Vec<u8> },
             Logic::Process(_) => todo!(),
         };
         if self.repeat.is_some() {
@@ -43,7 +43,7 @@ impl Attribute {
         let mut expr = match &self.logic {
             Logic::FixedContents(c) => {
                 let contents = c.iter().map(|i| quote! { #i });
-                return quote! { buf.ensure_fixed_contents(&[#(#contents),*]) };
+                return quote! { buf.ensure_fixed_contents(&[#(#contents),*])?; };
             }
             Logic::Type(ty) => ty.expr(meta),
             Logic::Switch { .. } => todo!(),
@@ -101,7 +101,7 @@ impl std::convert::TryFrom<(Option<de::meta::Meta>, de::attr::Attr)> for Attribu
     fn try_from(
         (meta, attr): (Option<de::meta::Meta>, de::attr::Attr),
     ) -> Result<Self, Self::Error> {
-        let id = Ident::new(&sc_to_ucc(&attr.id), Span::call_site());
+        let id = Ident::new(&sc_to_ucc(&attr.id.unwrap()), Span::call_site());
         let doc = (meta.map(|m| m.doc), attr.doc).into();
         let repeat = match attr.repeat {
             Some(repeat) => Some(match repeat {
@@ -114,8 +114,12 @@ impl std::convert::TryFrom<(Option<de::meta::Meta>, de::attr::Attr)> for Attribu
         let logic = {
             if let Some(contents) = attr.contents {
                 Logic::FixedContents(contents)
+            } else if let Some(size) = attr.size {
+                Logic::Size(Size::Fixed(size))
+            } else if attr.size_eos {
+                Logic::Size(Size::Eos)
             } else {
-                match attr.ty {
+                match attr.ty.unwrap() {
                     de::attr::AttrType::TypeRef(type_ref) => {
                         Logic::Type(Type::from((type_ref, attr.en)))
                     }
@@ -287,4 +291,72 @@ pub enum Repeat {
     Eos,
     Expr(IntegerValue),
     Until(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attribute_field_definitions() {
+        let docs = (0..5).map(|_| Doc::new());
+        let repeats = vec![
+            Some(Repeat::Eos),
+            None,
+            None,
+            Some(Repeat::Eos),
+            Some(Repeat::Eos),
+        ];
+        let logics = vec![
+            Logic::FixedContents(vec![0, 1]),
+            Logic::Type(Type::UserDefined("my_type".to_owned())),
+            Logic::Type(Type::BuiltIn {
+                ty: BuiltInType::U16,
+                en: None,
+            }),
+            Logic::Type(Type::BuiltIn {
+                ty: BuiltInType::U16,
+                en: Some("my_enum".to_owned()),
+            }),
+            Logic::Size(Size::Eos),
+        ];
+
+        let expected = vec![
+            quote! {},
+            quote! {
+                #[doc = ""]
+                pub dont: MyType
+            },
+            quote! {
+                #[doc = ""]
+                pub kill: u16
+            },
+            quote! {
+                #[doc = ""]
+                pub my: ::std::vec::Vec<MyEnum>
+            },
+            quote! {
+                #[doc = ""]
+                // Yes the space has to be there. No I don't know why.
+                pub vibe: ::std::vec::Vec<::std::vec::Vec<u8> >
+            },
+        ];
+        vec!["bitch", "dont", "kill", "my", "vibe"]
+            .iter()
+            .map(|id| Ident::new(id, Span::call_site()))
+            .zip(docs)
+            .zip(repeats)
+            .zip(logics)
+            .map(|(((id, doc), repeat), logic)| {
+                Attribute {
+                    id,
+                    doc,
+                    repeat,
+                    logic,
+                }
+                .field_definition()
+            })
+            .zip(expected)
+            .for_each(|(def, expected)| assert_eq!(def.to_string(), expected.to_string()));
+    }
 }

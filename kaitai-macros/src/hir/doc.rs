@@ -5,6 +5,18 @@ pub struct Doc {
     doc: doc::Doc,
 }
 
+impl Doc {
+    pub fn new() -> Self {
+        Self {
+            meta_doc: None,
+            doc: doc::Doc {
+                doc: String::new(),
+                doc_ref: Vec::new(),
+            },
+        }
+    }
+}
+
 impl From<(Option<MetaDoc>, doc::Doc)> for Doc {
     fn from((meta_doc, doc): (Option<MetaDoc>, doc::Doc)) -> Self {
         Self { meta_doc, doc }

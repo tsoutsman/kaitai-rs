@@ -7,6 +7,17 @@ pub enum IntegerValue {
     Literal(u64),
 }
 
+impl quote::ToTokens for IntegerValue {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(match self {
+            IntegerValue::Variable(id) => {
+                proc_macro2::Ident::new(id, proc_macro2::Span::call_site()).into_token_stream()
+            }
+            IntegerValue::Literal(value) => quote::quote! { #value },
+        });
+    }
+}
+
 pub fn deserialize_string_or_seq<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: Deserializer<'de>,
