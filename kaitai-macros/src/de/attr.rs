@@ -5,62 +5,53 @@ use std::collections::HashMap;
 use serde::{de, Deserialize, Deserializer};
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Attr {
-    pub id: Option<String>,
-    #[serde(flatten)]
+    pub id: String,
+    #[serde(flatten, default)]
     pub doc: Doc,
-    #[serde(deserialize_with = "deserialize_contents")]
+    #[serde(deserialize_with = "deserialize_contents", default)]
     pub contents: Option<Vec<u8>>,
     #[serde(rename = "type")]
-    pub ty: Option<AttrType>,
+    pub ty: AttrType,
+    #[serde(default)]
     pub repeat: Option<Repeat>,
+    #[serde(default)]
     pub repeat_expr: Option<IntegerValue>,
+    #[serde(default)]
     pub repeat_until: Option<String>,
-    #[serde(rename = "if")]
+    #[serde(rename = "if", default)]
     pub if_expr: Option<String>,
+    #[serde(default)]
     pub size: Option<IntegerValue>,
+    #[serde(default)]
     pub size_eos: bool,
+    #[serde(default)]
     pub process: Option<String>,
-    #[serde(rename = "enum")]
+    #[serde(rename = "enum", default)]
     pub en: Option<String>,
+    #[serde(default)]
     pub encoding: Option<String>,
+    #[serde(default)]
     pub pad_right: Option<u64>,
+    #[serde(default)]
     pub terminator: Option<u64>,
+    #[serde(default = "default_true")]
     pub consume: bool,
+    #[serde(default)]
     pub include: bool,
+    #[serde(default = "default_true")]
     pub eos_error: bool,
+    #[serde(default)]
     pub pos: Option<IntegerValue>,
+    #[serde(default)]
     pub io: Option<String>,
+    #[serde(default)]
     pub value: Option<String>,
 }
 
-impl Default for Attr {
-    fn default() -> Self {
-        Self {
-            id: None,
-            doc: Doc::default(),
-            contents: None,
-            ty: None,
-            repeat: None,
-            repeat_expr: None,
-            repeat_until: None,
-            if_expr: None,
-            size: None,
-            size_eos: false,
-            process: None,
-            en: None,
-            encoding: None,
-            pad_right: None,
-            terminator: None,
-            consume: true,
-            include: false,
-            eos_error: true,
-            pos: None,
-            io: None,
-            value: None,
-        }
-    }
+const fn default_true() -> bool {
+    true
 }
 
 fn deserialize_contents<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>

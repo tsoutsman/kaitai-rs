@@ -28,7 +28,7 @@ pub struct MetaDoc {
     pub license: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Endianness {
     Le,

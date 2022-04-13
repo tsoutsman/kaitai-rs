@@ -1,13 +1,80 @@
-use crate::de::{self, doc::Doc};
+use crate::{
+    de,
+    hir::{doc::Doc, meta::Meta},
+    util::sc_to_ucc,
+};
 
 use std::convert::TryFrom;
 
-pub use crate::de::{attr::Repeat, data::IntegerValue};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{quote, ToTokens};
 
-pub struct Attr {
-    id: Option<String>,
+pub use crate::de::data::IntegerValue;
+
+pub struct Attribute {
+    id: Ident,
     doc: Doc,
+    repeat: Option<Repeat>,
     logic: Logic,
+}
+
+impl Attribute {
+    pub fn field_definition(&self) -> TokenStream {
+        let mut ty = match &self.logic {
+            Logic::FixedContents(_) => return TokenStream::new(),
+            Logic::Type(ty) => ty.ty(),
+            Logic::Switch { .. } => todo!(),
+            Logic::Size(_) => quote! { Vec<u8> },
+            Logic::Process(_) => todo!(),
+        };
+        if self.repeat.is_some() {
+            ty = quote! { ::std::vec::Vec<#ty> };
+        }
+
+        let doc = &self.doc;
+        let id = &self.id;
+        quote! {
+            #doc
+            pub #id: #ty
+        }
+    }
+
+    pub fn variable_assignment(&self, meta: &Meta) -> TokenStream {
+        let mut expr = match &self.logic {
+            Logic::FixedContents(c) => {
+                let contents = c.iter().map(|i| quote! { #i });
+                return quote! { buf.ensure_fixed_contents(&[#(#contents),*]) };
+            }
+            Logic::Type(ty) => ty.expr(meta),
+            Logic::Switch { .. } => todo!(),
+            Logic::Size(size) => match size {
+                Size::Fixed(count) => quote! { buf.read_bytes(#count)? },
+                Size::Eos => quote! { buf.read_bytes_full()? },
+            },
+            Logic::Process(_) => todo!(),
+        };
+
+        if let Some(repeat) = &self.repeat {
+            expr = match repeat {
+                Repeat::Eos => {
+                    quote! {
+                        {
+                            let mut result = Vec::new();
+                            while !buf.is_eof()? {
+                                result.push(#expr);
+                            }
+                            result
+                        }
+                    }
+                }
+                Repeat::Expr(_) => todo!(),
+                Repeat::Until(_) => todo!(),
+            }
+        }
+
+        let id = &self.id;
+        quote! { let #id = #expr; }
+    }
 }
 
 pub enum Logic {
@@ -16,10 +83,6 @@ pub enum Logic {
     Switch {
         on: String,
         cases: Vec<(Pattern, Type)>,
-    },
-    Repeat {
-        ty: Repeat,
-        num: Option<IntegerValue>,
     },
     // TODO: if logic
     Size(Size),
@@ -32,19 +95,29 @@ pub enum Logic {
 // TODO: io
 // TODO: value
 
-impl std::convert::TryFrom<de::attr::Attr> for Attr {
+impl std::convert::TryFrom<(Option<de::meta::Meta>, de::attr::Attr)> for Attribute {
     type Error = ();
 
-    fn try_from(a: de::attr::Attr) -> Result<Self, Self::Error> {
-        let id = a.id;
-        let doc = a.doc;
+    fn try_from(
+        (meta, attr): (Option<de::meta::Meta>, de::attr::Attr),
+    ) -> Result<Self, Self::Error> {
+        let id = Ident::new(&sc_to_ucc(&attr.id), Span::call_site());
+        let doc = (meta.map(|m| m.doc), attr.doc).into();
+        let repeat = match attr.repeat {
+            Some(repeat) => Some(match repeat {
+                de::attr::Repeat::Eos => Repeat::Eos,
+                de::attr::Repeat::Expr => Repeat::Expr(attr.repeat_expr.unwrap()),
+                de::attr::Repeat::Until => Repeat::Until(attr.repeat_until.unwrap()),
+            }),
+            None => None,
+        };
         let logic = {
-            if let Some(contents) = a.contents {
+            if let Some(contents) = attr.contents {
                 Logic::FixedContents(contents)
-            } else if let Some(ty) = a.ty {
-                match ty {
+            } else {
+                match attr.ty {
                     de::attr::AttrType::TypeRef(type_ref) => {
-                        Logic::Type(Type::from((type_ref, a.en)))
+                        Logic::Type(Type::from((type_ref, attr.en)))
                     }
                     de::attr::AttrType::Switch {
                         switch_on: on,
@@ -54,18 +127,57 @@ impl std::convert::TryFrom<de::attr::Attr> for Attr {
                         cases: cases.into_iter().map(|(_k, _v)| todo!()).collect(),
                     },
                 }
-            } else {
-                todo!();
             }
         };
 
-        Ok(Self { id, doc, logic })
+        Ok(Self {
+            id,
+            doc,
+            repeat,
+            logic,
+        })
     }
 }
 
 pub enum Type {
     UserDefined(String),
     BuiltIn { ty: BuiltInType, en: Option<String> },
+}
+
+impl Type {
+    fn ty(&self) -> TokenStream {
+        match self {
+            Type::UserDefined(id) => {
+                Ident::new(&sc_to_ucc(id), Span::call_site()).into_token_stream()
+            }
+            Type::BuiltIn { ty, en } => {
+                if let Some(enum_id) = en {
+                    Ident::new(&sc_to_ucc(enum_id), Span::call_site()).into_token_stream()
+                } else {
+                    ty.to_token_stream()
+                }
+            }
+        }
+    }
+
+    fn expr(&self, meta: &Meta) -> TokenStream {
+        match self {
+            Type::UserDefined(_) => todo!(),
+            Type::BuiltIn { ty, en } => {
+                let read_call = format!("buf.read_{}{}()?", ty.ks_type(), ty.endianness(meta));
+                if let Some(enum_ident) = en {
+                    format!(
+                        "{}::n({}).ok_or(::kaitai::error::Error::NoEnumMatch)?",
+                        enum_ident, read_call
+                    )
+                } else {
+                    read_call
+                }
+            }
+        }
+        .parse()
+        .unwrap()
+    }
 }
 
 // TODO: cow?
@@ -112,6 +224,52 @@ impl std::convert::TryFrom<&str> for BuiltInType {
     }
 }
 
+impl BuiltInType {
+    fn ks_type(&self) -> &'static str {
+        match self {
+            BuiltInType::U8 => "u1",
+            BuiltInType::U16 => "u2",
+            BuiltInType::U32 => "u4",
+            BuiltInType::U64 => "u8",
+            BuiltInType::I8 => "s1",
+            BuiltInType::I16 => "s2",
+            BuiltInType::I32 => "s4",
+            BuiltInType::I64 => "s8",
+            BuiltInType::F32 => "f4",
+            BuiltInType::F64 => "f8",
+        }
+    }
+
+    /// Returns a [`String`] describing the endianness of the `VariableContents`.
+    ///
+    /// Little-endian contents return "le". Big-endian contents return "be".
+    ///
+    /// If the contents are of KS type `u1` or `s1`, the function will return an empty string.
+    fn endianness(&self, meta: &Meta) -> &'static str {
+        match &self {
+            BuiltInType::U8 | BuiltInType::I8 => "",
+            _ => meta.endianness.into(),
+        }
+    }
+}
+
+impl ToTokens for BuiltInType {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(match self {
+            BuiltInType::U8 => quote! { u8 },
+            BuiltInType::U16 => quote! { u16 },
+            BuiltInType::U32 => quote! { u32 },
+            BuiltInType::U64 => quote! { u64 },
+            BuiltInType::I8 => quote! { i8 },
+            BuiltInType::I16 => quote! { i16 },
+            BuiltInType::I32 => quote! { i32 },
+            BuiltInType::I64 => quote! { i64 },
+            BuiltInType::F32 => quote! { f32 },
+            BuiltInType::F64 => quote! { f64 },
+        })
+    }
+}
+
 // TODO: Encoding field on String type
 // TODO: terminator for String or Byte array
 
@@ -123,4 +281,10 @@ pub enum Pattern {
 pub enum Size {
     Fixed(IntegerValue),
     Eos,
+}
+
+pub enum Repeat {
+    Eos,
+    Expr(IntegerValue),
+    Until(String),
 }
