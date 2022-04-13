@@ -1,16 +1,55 @@
 use crate::{
     de,
-    hir::{doc::Doc, meta::Meta},
+    hir::{doc::Doc, meta::Endianness},
     util::sc_to_ucc,
 };
-
-use std::convert::TryFrom;
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 
 pub use crate::de::data::IntegerValue;
 
+#[derive(Clone, Debug)]
+pub struct Attributes(Vec<Attribute>);
+
+impl TryFrom<(Option<de::meta::MetaDoc>, Vec<de::attr::Attr>)> for Attributes {
+    type Error = ();
+
+    fn try_from(
+        (meta_doc, attrs): (Option<de::meta::MetaDoc>, Vec<de::attr::Attr>),
+    ) -> Result<Self, Self::Error> {
+        Ok(Self(
+            attrs
+                .into_iter()
+                .map(|a| (meta_doc.clone(), a).try_into())
+                .collect::<Result<Vec<_>, _>>()?,
+        ))
+    }
+}
+
+impl Attributes {
+    pub fn field_definitions(&self) -> impl Iterator<Item = TokenStream> + '_ {
+        self.0
+            .iter()
+            .filter(|a| a.is_stored())
+            .map(|a| a.field_definition())
+    }
+
+    pub fn variable_assignments(
+        &self,
+        endianness: Endianness,
+    ) -> impl Iterator<Item = TokenStream> + '_ {
+        self.0
+            .iter()
+            .map(move |a| a.variable_assignment(endianness))
+    }
+
+    pub fn field_assignments(&self) -> impl Iterator<Item = &Ident> {
+        self.0.iter().filter(|a| a.is_stored()).map(|a| &a.id)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Attribute {
     id: Ident,
     doc: Doc,
@@ -19,6 +58,67 @@ pub struct Attribute {
 }
 
 impl Attribute {
+    fn is_stored(&self) -> bool {
+        match &self.logic {
+            Logic::FixedContents(_) => false,
+            Logic::Type(_) => true,
+            Logic::Switch { .. } => true,
+            Logic::Size(_) => true,
+            Logic::Process(_) => true,
+        }
+    }
+
+    /// Returns a [`TokenStream`] containing the definition of the struct field
+    /// containing the `Attribute`.
+    ///
+    /// # Examples
+    ///
+    /// ## Built-in
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: u4
+    /// ```
+    /// results in
+    /// ```ignore
+    /// pub example_attr: u32
+    /// ```
+    ///
+    /// Note that a `u4` in KS is the equivalent of a [`u32`] in Rust.
+    ///
+    /// ## Custom type
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_type
+    /// ## where example_type is a custom type defined in the `types` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// pub example_attr: ExampleType
+    /// ```
+    ///
+    /// Note that the name of the type is converted into upper camel case.
+    ///
+    /// ## Enum
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_enum
+    /// ## where example_enum is an enum defined in the `enums` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// pub example_attr: ExampleEnum
+    /// ```
+    ///
+    /// Note that the name of the enum is converted into upper camel case.
+    ///
+    /// ## Fixed Contents
+    ///
+    /// Fixed contents attributes are only checked and are not stored in the struct.
+    /// Hence, this method return an empty [`TokenStream`] if the attribute has fixed
+    /// contents.
     pub fn field_definition(&self) -> TokenStream {
         let mut ty = match &self.logic {
             Logic::FixedContents(_) => return TokenStream::new(),
@@ -39,13 +139,71 @@ impl Attribute {
         }
     }
 
-    pub fn variable_assignment(&self, meta: &Meta) -> TokenStream {
+    /// Returns a [`TokenStream`] representing the assignment of the variable
+    /// containing the `Attribute`.
+    ///
+    /// # Examples
+    /// All the following examples assume the format is little endian.
+    ///
+    /// ## Built-in
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: u4
+    /// ```
+    /// results in
+    /// ```ignore
+    /// let example_attr = buf.read_u4le()?;
+    /// ```
+    ///
+    /// ## Custom type
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_type
+    /// ## where example_type is a custom type defined in the `types` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// let example_attr = ExampleType::new(buf)?;
+    /// ```
+    ///
+    /// Note that the name of the type is converted into upper camel case.
+    ///
+    /// ## Enum
+    ///
+    /// ```yaml
+    /// name: example_attr
+    /// type: example_enum
+    /// ## where example_enum is an enum defined in the `enums` part of the file.
+    /// ```
+    /// results in
+    /// ```ignore
+    /// let example_attr = ExampleEnum::n(buf.read_u4le()?).ok_or(::kaitai::error::Error::NoEnumMatch)?;
+    /// ```
+    ///
+    /// Note that the name of the enum is converted into upper camel case.
+    ///
+    /// ## Fixed Contents
+    ///
+    /// Fixed contents attributes are only checked and are not stored in the struct.
+    ///
+    /// ```yaml
+    /// name: id
+    /// contents: glTF
+    /// ```
+    /// results is
+    /// ```ignore
+    /// buf.ensure_fixed_contents("glTF".as_bytes())?;
+    /// ```
+    ///
+    pub fn variable_assignment(&self, endianness: Endianness) -> TokenStream {
         let mut expr = match &self.logic {
             Logic::FixedContents(c) => {
                 let contents = c.iter().map(|i| quote! { #i });
                 return quote! { buf.ensure_fixed_contents(&[#(#contents),*])?; };
             }
-            Logic::Type(ty) => ty.expr(meta),
+            Logic::Type(ty) => ty.expr(endianness),
             Logic::Switch { .. } => todo!(),
             Logic::Size(size) => match size {
                 Size::Fixed(count) => quote! { buf.read_bytes(#count)? },
@@ -77,32 +235,14 @@ impl Attribute {
     }
 }
 
-pub enum Logic {
-    FixedContents(Vec<u8>),
-    Type(Type),
-    Switch {
-        on: String,
-        cases: Vec<(Pattern, Type)>,
-    },
-    // TODO: if logic
-    Size(Size),
-    // TODO: probably don't use string
-    Process(String),
-}
-
-// TODO: pad-right
-// TODO: pos
-// TODO: io
-// TODO: value
-
-impl std::convert::TryFrom<(Option<de::meta::Meta>, de::attr::Attr)> for Attribute {
+impl TryFrom<(Option<de::meta::MetaDoc>, de::attr::Attr)> for Attribute {
     type Error = ();
 
     fn try_from(
-        (meta, attr): (Option<de::meta::Meta>, de::attr::Attr),
+        (meta_doc, attr): (Option<de::meta::MetaDoc>, de::attr::Attr),
     ) -> Result<Self, Self::Error> {
-        let id = Ident::new(&sc_to_ucc(&attr.id.unwrap()), Span::call_site());
-        let doc = (meta.map(|m| m.doc), attr.doc).into();
+        let id = Ident::new(&attr.id.unwrap(), Span::call_site());
+        let doc = (meta_doc, attr.doc).into();
         let repeat = match attr.repeat {
             Some(repeat) => Some(match repeat {
                 de::attr::Repeat::Eos => Repeat::Eos,
@@ -143,6 +283,26 @@ impl std::convert::TryFrom<(Option<de::meta::Meta>, de::attr::Attr)> for Attribu
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Logic {
+    FixedContents(Vec<u8>),
+    Type(Type),
+    Switch {
+        on: String,
+        cases: Vec<(Pattern, Type)>,
+    },
+    // TODO: if logic
+    Size(Size),
+    // TODO: probably don't use string
+    Process(String),
+}
+
+// TODO: pad-right
+// TODO: pos
+// TODO: io
+// TODO: value
+
+#[derive(Clone, Debug)]
 pub enum Type {
     UserDefined(String),
     BuiltIn { ty: BuiltInType, en: Option<String> },
@@ -164,11 +324,12 @@ impl Type {
         }
     }
 
-    fn expr(&self, meta: &Meta) -> TokenStream {
+    fn expr(&self, endianness: Endianness) -> TokenStream {
         match self {
             Type::UserDefined(_) => todo!(),
             Type::BuiltIn { ty, en } => {
-                let read_call = format!("buf.read_{}{}()?", ty.ks_type(), ty.endianness(meta));
+                let read_call =
+                    format!("buf.read_{}{}()?", ty.ks_type(), ty.endianness(endianness));
                 if let Some(enum_ident) = en {
                     format!(
                         "{}::n({}).ok_or(::kaitai::error::Error::NoEnumMatch)?",
@@ -185,7 +346,7 @@ impl Type {
 }
 
 // TODO: cow?
-impl std::convert::From<(String, Option<String>)> for Type {
+impl From<(String, Option<String>)> for Type {
     fn from((type_ref, en): (String, Option<String>)) -> Self {
         if let Ok(built_in) = BuiltInType::try_from(type_ref.as_ref()) {
             Type::BuiltIn { ty: built_in, en }
@@ -195,6 +356,7 @@ impl std::convert::From<(String, Option<String>)> for Type {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum BuiltInType {
     U8,
     U16,
@@ -208,7 +370,7 @@ pub enum BuiltInType {
     F64,
 }
 
-impl std::convert::TryFrom<&str> for BuiltInType {
+impl TryFrom<&str> for BuiltInType {
     type Error = ();
 
     fn try_from(s: &str) -> Result<Self, ()> {
@@ -249,10 +411,10 @@ impl BuiltInType {
     /// Little-endian contents return "le". Big-endian contents return "be".
     ///
     /// If the contents are of KS type `u1` or `s1`, the function will return an empty string.
-    fn endianness(&self, meta: &Meta) -> &'static str {
+    fn endianness(&self, endianness: Endianness) -> &'static str {
         match &self {
             BuiltInType::U8 | BuiltInType::I8 => "",
-            _ => meta.endianness.into(),
+            _ => endianness.into(),
         }
     }
 }
@@ -277,16 +439,19 @@ impl ToTokens for BuiltInType {
 // TODO: Encoding field on String type
 // TODO: terminator for String or Byte array
 
+#[derive(Clone, Debug)]
 pub enum Pattern {
     Enum(String),
     Int(u64),
 }
 
+#[derive(Clone, Debug)]
 pub enum Size {
     Fixed(IntegerValue),
     Eos,
 }
 
+#[derive(Clone, Debug)]
 pub enum Repeat {
     Eos,
     Expr(IntegerValue),

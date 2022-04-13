@@ -1,5 +1,6 @@
 pub use crate::de::{doc, meta::MetaDoc};
 
+#[derive(Clone, Debug)]
 pub struct Doc {
     meta_doc: Option<MetaDoc>,
     doc: doc::Doc,

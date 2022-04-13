@@ -2,7 +2,7 @@
 name = "kaitai-macros"
 version = "0.1.2"
 authors = ["Klim Tsoutsman <klimusha@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "Macros for kaitai"
 readme = true
 repository = "https://www.github.com/tsoutsman/kaitai-rs"

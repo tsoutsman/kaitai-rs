@@ -90,18 +90,15 @@ where
             Ok(value.into_bytes())
         }
 
-        fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
         where
-            E: de::Error,
+            A: de::SeqAccess<'de>,
         {
-            Ok(value.to_owned())
-        }
-
-        fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(value)
+            let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+            while let Some(i) = seq.next_element()? {
+                vec.push(i);
+            }
+            Ok(vec)
         }
     }
 

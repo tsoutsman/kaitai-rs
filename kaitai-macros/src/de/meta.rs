@@ -13,7 +13,8 @@ pub struct Meta {
     pub ks_opaque_types: bool,
     pub imports: Vec<String>,
     pub encoding: Option<String>,
-    pub endian: Option<Endianness>,
+    #[serde(rename = "endian")]
+    pub endianness: Option<Endianness>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

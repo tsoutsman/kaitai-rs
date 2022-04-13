@@ -5,14 +5,14 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", default)]
 pub struct Type {
-    meta: Option<Meta>,
+    pub meta: Option<Meta>,
     #[serde(flatten)]
-    doc: Doc,
-    params: Vec<Param>,
-    seq: Vec<Attr>,
-    types: HashMap<String, Type>,
-    instances: HashMap<String, Attr>,
-    enums: HashMap<String, Enum>,
+    pub doc: Doc,
+    pub params: Vec<Param>,
+    pub seq: Vec<Attr>,
+    pub types: HashMap<String, Type>,
+    pub instances: HashMap<String, Attr>,
+    pub enums: HashMap<String, Enum>,
 }
 
 #[cfg(test)]
