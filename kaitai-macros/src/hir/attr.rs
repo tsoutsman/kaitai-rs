@@ -472,14 +472,14 @@ mod tests {
         ];
         let logics = vec![
             Logic::FixedContents(vec![0, 1]),
-            Logic::Type(Type::UserDefined("my_type".to_owned())),
+            Logic::Type(Type::UserDefined(Ident::new("MyType", Span::call_site()))),
             Logic::Type(Type::BuiltIn {
                 ty: BuiltInType::U16,
                 en: None,
             }),
             Logic::Type(Type::BuiltIn {
                 ty: BuiltInType::U16,
-                en: Some("my_enum".to_owned()),
+                en: Some(Ident::new("MyEnum", Span::call_site())),
             }),
             Logic::Size(Size::Eos),
         ];
