@@ -13,6 +13,7 @@ use crate::{
 use std::collections::HashMap;
 
 use proc_macro2::{Ident, Span};
+use quote::ToTokens;
 
 #[derive(Debug)]
 pub struct Type {
@@ -21,9 +22,9 @@ pub struct Type {
     doc: Doc,
     params: Vec<Parameter>,
     seq: Attributes,
-    types: HashMap<String, Type>,
+    types: Vec<Type>,
     instances: HashMap<String, Attribute>,
-    enums: HashMap<String, Enumeration>,
+    enums: Vec<Enumeration>,
 }
 
 pub struct InheritedMeta {
@@ -35,20 +36,18 @@ impl TryFrom<(InheritedMeta, de::ty::Type)> for Type {
     type Error = ();
 
     fn try_from((inherited_meta, ty): (InheritedMeta, de::ty::Type)) -> Result<Self, Self::Error> {
-        let meta_id = ty
-            .meta
-            .as_ref()
-            .map(|m| {
-                m.id.as_ref()
-                    .map(|id| Ident::new(&sc_to_ucc(&id), Span::call_site()))
-            })
-            .flatten();
+        let meta_id = ty.meta.as_ref().and_then(|m| {
+            m.id.as_ref()
+                .map(|id| Ident::new(&sc_to_ucc(&id), Span::call_site()))
+        });
         let id = match inherited_meta.id {
             Some((id, overwrite)) => {
                 if overwrite {
                     id
+                } else if let Some(id) = meta_id {
+                    id
                 } else {
-                    meta_id.unwrap()
+                    id
                 }
             }
             None => meta_id.unwrap(),
@@ -57,15 +56,30 @@ impl TryFrom<(InheritedMeta, de::ty::Type)> for Type {
         let endianness = ty
             .meta
             .as_ref()
-            .map(|m| m.endianness)
-            .flatten()
+            .and_then(|m| m.endianness)
             .or(inherited_meta.endianness)
-            .unwrap();
+            .expect("no endianness inherited");
         // TODO: All the meta doc clones.
         let doc = (ty.meta.as_ref().map(|meta| meta.doc.clone()), ty.doc).into();
         let seq = (ty.meta.as_ref().map(|m| m.doc.clone()), ty.seq)
             .try_into()
-            .unwrap();
+            .expect("seq validation failed");
+        let types = ty
+            .types
+            .into_iter()
+            .map(|(id, ty)| {
+                let inherited_meta = InheritedMeta {
+                    id: Some((Ident::new(&sc_to_ucc(&id), Span::call_site()), false)),
+                    endianness: Some(endianness),
+                };
+                Type::try_from((inherited_meta, ty)).expect("type validation failed")
+            })
+            .collect();
+        let enums = ty
+            .enums
+            .into_iter()
+            .map(|(id, en)| (id.as_ref(), en).into())
+            .collect();
 
         Ok(Self {
             id,
@@ -74,18 +88,18 @@ impl TryFrom<(InheritedMeta, de::ty::Type)> for Type {
             // TODO
             params: Default::default(),
             seq,
-            // TODO
-            types: Default::default(),
+            types,
             // TODO
             instances: Default::default(),
-            // TODO
-            enums: Default::default(),
+            enums,
         })
     }
 }
 
-impl quote::ToTokens for Type {
+impl ToTokens for Type {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let type_defs = self.types.iter().map(|ty| ty.into_token_stream());
+        let enum_defs = self.enums.iter().map(|en| en.into_token_stream());
         let doc = &self.doc;
         let id = &self.id;
         let field_defs = self.seq.field_definitions();
@@ -93,9 +107,12 @@ impl quote::ToTokens for Type {
         let field_assignments = self.seq.field_assignments();
 
         tokens.extend(quote::quote! {
+            #(#type_defs)*
+            #(#enum_defs)*
+
             #doc
             // TODO: Pass down attributes from struct
-            #[derive(Debug)]
+            #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
             pub struct #id {
                 #(#field_defs),*
             }

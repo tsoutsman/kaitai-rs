@@ -8,12 +8,12 @@ use serde::{
 };
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub struct Enum(HashMap<u64, EnumValue>);
+pub struct Enum(pub HashMap<u64, EnumValue>);
 
 #[derive(Clone, Debug)]
 pub struct EnumValue {
-    id: String,
-    doc: Doc,
+    pub id: String,
+    pub doc: Doc,
 }
 
 impl<'de> Deserialize<'de> for EnumValue {

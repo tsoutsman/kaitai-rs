@@ -304,19 +304,17 @@ pub enum Logic {
 
 #[derive(Clone, Debug)]
 pub enum Type {
-    UserDefined(String),
-    BuiltIn { ty: BuiltInType, en: Option<String> },
+    UserDefined(Ident),
+    BuiltIn { ty: BuiltInType, en: Option<Ident> },
 }
 
 impl Type {
     fn ty(&self) -> TokenStream {
         match self {
-            Type::UserDefined(id) => {
-                Ident::new(&sc_to_ucc(id), Span::call_site()).into_token_stream()
-            }
+            Type::UserDefined(id) => id.into_token_stream(),
             Type::BuiltIn { ty, en } => {
                 if let Some(enum_id) = en {
-                    Ident::new(&sc_to_ucc(enum_id), Span::call_site()).into_token_stream()
+                    enum_id.into_token_stream()
                 } else {
                     ty.to_token_stream()
                 }
@@ -326,22 +324,19 @@ impl Type {
 
     fn expr(&self, endianness: Endianness) -> TokenStream {
         match self {
-            Type::UserDefined(_) => todo!(),
+            Type::UserDefined(id) => quote! { <#id as ::kaitai::KaitaiStruct>::new(buf)? },
             Type::BuiltIn { ty, en } => {
                 let read_call =
-                    format!("buf.read_{}{}()?", ty.ks_type(), ty.endianness(endianness));
+                    format!("buf.read_{}{}()?", ty.ks_type(), ty.endianness(endianness))
+                        .parse()
+                        .unwrap();
                 if let Some(enum_ident) = en {
-                    format!(
-                        "{}::n({}).ok_or(::kaitai::error::Error::NoEnumMatch)?",
-                        enum_ident, read_call
-                    )
+                    quote! { #enum_ident::n(#read_call).ok_or(::kaitai::error::Error::NoEnumMatch)? }
                 } else {
                     read_call
                 }
             }
         }
-        .parse()
-        .unwrap()
     }
 }
 
@@ -349,9 +344,12 @@ impl Type {
 impl From<(String, Option<String>)> for Type {
     fn from((type_ref, en): (String, Option<String>)) -> Self {
         if let Ok(built_in) = BuiltInType::try_from(type_ref.as_ref()) {
-            Type::BuiltIn { ty: built_in, en }
+            Type::BuiltIn {
+                ty: built_in,
+                en: en.map(|id| Ident::new(&sc_to_ucc(&id), Span::call_site())),
+            }
         } else {
-            Type::UserDefined(type_ref)
+            Type::UserDefined(Ident::new(&sc_to_ucc(&type_ref), Span::call_site()))
         }
     }
 }
