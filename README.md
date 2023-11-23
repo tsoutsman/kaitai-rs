@@ -4,7 +4,7 @@
 [![Documentation](https://docs.rs/kaitai/badge.svg)](https://docs.rs/kaitai/)
 [![Workflow Status](https://github.com/TypicalFork/kaitai-rs/workflows/CI/badge.svg)](https://github.com/TypicalFork/kaitai-rs/actions?query=workflow%3A%22CI%22)
 
-This crate is still very much a work in progress; it has a **very** limited feature set.
+This crate is still very much a work in progress.
 
 A macro for compiling Kaitai Struct into Rust.
 
